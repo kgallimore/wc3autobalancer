@@ -175,7 +175,7 @@ function handleWSMessage(message) {
 }
 
 function processLobby(list) {
-  const excludeRedFromSwap = true;
+  const excludeHostFromSwap = true;
   list.eloList = {};
   let mapName = list.mapName;
   if (mapName.includes("HLW")) {
@@ -248,6 +248,7 @@ function processLobby(list) {
                   list.bestCombo = bestCombo;
                   list.eloDiff = smallestEloDiff;
                   swapHelper(list);
+
                   win.webContents.send("fromMain", {
                     messageType: "lobbyElo",
                     eloList: list,
@@ -260,7 +261,14 @@ function processLobby(list) {
                     );
                     robot.keyTap("enter");
                   } else {
-                    // TODO Swap teams here
+                    for (let i = 0; i < list.swaps[0].length; i++) {
+                      robot.typeStringDelayed(
+                        "!swap " + list.swaps[0][i] + " " + list.swaps[1][i],
+                        10000
+                      );
+                      robot.keyTap("enter");
+                      robot.keyTap("enter");
+                    }
                   }
                 }
               });
@@ -275,12 +283,16 @@ function processLobby(list) {
 }
 
 function swapHelper(list) {
+  // TODO this was done very late at night and seems to be super inconsistent
   let swapsFromTeam1 = [];
   let swapsFromTeam2 = [];
-  excludeRedFromSwap = true;
+  excludeHostFromSwap = true;
+  const bestComboInTeam1 = intersect(list.bestCombo, list.teamList[list.team1]);
+  const bestComboInTeam2 = intersect(list.bestCombo, list.teamList[list.team2]);
   if (
-    bestComboInTeam1.length > bestComboInTeam2.length ||
-    (excludeRedFromSwap && list.teamList[list.team1].includes(list.gameHost))
+    bestComboInTeam1.length > bestComboInTeam2.length &&
+    excludeHostFromSwap &&
+    list.teamList[list.team1].includes(list.gameHost)
   ) {
     list.leastSwap = list.team1;
     list.teamList[list.team1].forEach((user) => {
@@ -302,7 +314,7 @@ function swapHelper(list) {
       swapsFromTeam1.push(user);
     });
   }
-  list.swaps = [swapsFromTeam1, swapFromTeam2];
+  list.swaps = [swapsFromTeam1, swapsFromTeam2];
 }
 
 function intersect(a, b) {
