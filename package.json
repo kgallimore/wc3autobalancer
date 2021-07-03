@@ -1,0 +1,80 @@
+{
+  "name": "wc3autobalancer",
+  "productName": "WC3 Auto Balancer",
+  "version": "1.0.0",
+  "description": "Auto Balance Warcraft 3 Lobbies",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "echo \"No linting configured\"",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "wc3autobalancer",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "src/scale.png"
+    },
+    "nsis": {
+      "installerIcon": "src/scale.ico",
+      "uninstallerIcon": "src/scale.ico",
+      "uninstallDisplayName": "WC3 Auto Balancer",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "keywords": [],
+  "author": {
+    "name": "kgallimore",
+    "email": "72752967+kgallimore@users.noreply.github.com"
+  },
+  "license": "AGPL-3.0-or-later",
+  "config": {
+    "forge": {
+      "packagerConfig": {},
+      "makers": [
+        {
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "name": "wc3autobalancer"
+          }
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": [
+            "darwin"
+          ]
+        },
+        {
+          "name": "@electron-forge/maker-deb",
+          "config": {}
+        },
+        {
+          "name": "@electron-forge/maker-rpm",
+          "config": {}
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "electron-store": "^8.0.0",
+    "esm": "^3.2.25",
+    "js-combinatorics": "^1.4.5",
+    "robotjs": "github:octalmage/robotjs",
+    "ws": "^7.5.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^6.0.0-beta.57",
+    "@electron-forge/maker-deb": "^6.0.0-beta.57",
+    "@electron-forge/maker-rpm": "^6.0.0-beta.57",
+    "@electron-forge/maker-squirrel": "^6.0.0-beta.57",
+    "@electron-forge/maker-zip": "^6.0.0-beta.57",
+    "electron": "13.1.5",
+    "electron-builder": "^22.11.7"
+  }
+}
