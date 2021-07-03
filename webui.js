@@ -1,5 +1,5 @@
-let webSocket;
-
+let webSocket, observer;
+let menuState = "None";
 function wsSetup() {
   webSocket = new WebSocket("ws://127.0.0.1:8888");
   webSocket.onopen = function (event) {
@@ -20,6 +20,7 @@ function wsSetup() {
     );
   };
   webSocket.onclose = function (event) {
+    observer.disconnect();
     window.setTimeout(wsSetup, 3000);
   };
   webSocket.onmessage = function (event) {
@@ -97,7 +98,8 @@ function wsSetup() {
         webSocket.send(
           JSON.stringify({
             messageType: "body",
-            data: document.getElementsByTagName("body")[0].innerHTML,
+            //data: document.getElementsByTagName("body")[0].innerHTML,
+            data: document.getElementById("root").innerHTML,
           })
         );
         break;
@@ -182,5 +184,33 @@ function wsSetup() {
     }
   };
 }
+
+function mutationsSetup() {
+  const config = { attributes: false, childList: true, subtree: true };
+  const callback = function (mutationsList, observer) {
+    if (document.querySelector("div.MainMenuScreen-Copyright")) {
+      newMenuState = "Main Menu";
+    } else if (document.querySelector("div.GamesListing-List")) {
+      newMenuState = "Browse Games";
+    } else if (document.getElementById("root").innerText === "") {
+      newMenuState = "None";
+    }
+    if (newMenuState !== menuState) {
+      menuState = newMenuState;
+      if (webSocket) {
+        webSocket.send(
+          JSON.stringify({
+            messageType: "info",
+            data: menuState,
+          })
+        );
+      }
+    }
+  };
+  observer = new MutationObserver(callback);
+  observer.observe(document.getElementById("root"), config);
+}
+
+mutationsSetup();
 
 wsSetup();
