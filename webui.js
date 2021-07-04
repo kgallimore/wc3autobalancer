@@ -1,5 +1,8 @@
-let webSocket, observer;
+let webSocket, menusObserver;
 let menuState = "None";
+const testNonPLayersTeam = new RegExp(
+  /.*((computer)|(host)|(spectator)|(creep)).*/i
+);
 function wsSetup() {
   webSocket = new WebSocket("ws://127.0.0.1:8888");
   webSocket.onopen = function (event) {
@@ -20,7 +23,7 @@ function wsSetup() {
     );
   };
   webSocket.onclose = function (event) {
-    observer.disconnect();
+    menusObserver.disconnect();
     window.setTimeout(wsSetup, 3000);
   };
   webSocket.onmessage = function (event) {
@@ -49,7 +52,7 @@ function wsSetup() {
           const isHost =
             document.querySelector("div.Primary-Button.Primary-Button-Green") !=
             null;
-          let teamList = {};
+          let teamList = { playerTeams: {}, otherTeams: {} };
 
           document
             .querySelectorAll("div.TeamContainer")
@@ -57,24 +60,53 @@ function wsSetup() {
               const teamName =
                 container.querySelector("div.TeamContainer-Name").innerText ||
                 "Team " + (Object.keys(teamList).length + 1).toString();
-              teamList[teamName] = [];
-              container
-                .querySelectorAll("div.GameLobby-PlayerRow-Container")
-                .forEach(function (playerRow) {
-                  if (
-                    playerRow.querySelector("div.GameLobby-EmptyRow") == null
-                  ) {
-                    const playerName =
-                      playerRow.querySelector("div.nameTag").innerText;
-                    teamList[teamName].push(playerName);
-                  } else {
-                    teamList[teamName].push(
-                      "Slot " +
-                        (teamList[teamName].length + 1).toString() +
-                        " Open"
-                    );
-                  }
-                });
+              if (!testNonPLayersTeam.test(teamName)) {
+                teamList.playerTeams[teamName] = [];
+
+                container
+                  .querySelectorAll("div.GameLobby-PlayerRow-Container")
+                  .forEach(function (playerRow) {
+                    if (
+                      playerRow.querySelector("div.GameLobby-EmptyRow") == null
+                    ) {
+                      const playerName =
+                        playerRow.querySelector("div.nameTag").innerText;
+                      teamList.playerTeams[teamName].push(playerName);
+                    } else {
+                      teamList.playerTeams[teamName].push(
+                        "Slot " +
+                          (
+                            teamList.playerTeams[teamName].length + 1
+                          ).toString() +
+                          " " +
+                          playerRow.innerText.replace(/(\r\n|\n|\r)/gm, "")
+                      );
+                    }
+                  });
+              } else {
+                teamList.otherTeams[teamName] = [];
+
+                container
+                  .querySelectorAll("div.GameLobby-PlayerRow-Container")
+                  .forEach(function (playerRow) {
+                    if (
+                      playerRow.querySelector("div.GameLobby-EmptyRow") == null
+                    ) {
+                      const playerName =
+                        playerRow.querySelector("div.nameTag").innerText;
+                      teamList.otherTeams[teamName].push(playerName);
+                    } else {
+                      teamList.otherTeams[teamName].push(
+                        "Slot " +
+                          (
+                            teamList.otherTeams[teamName].length + 1
+                          ).toString() +
+                          " " +
+                          playerRow.innerText.replace(/(\r\n|\n|\r)/gm, "")
+                      );
+                    }
+                  });
+              }
             });
           let lobbydata = {
             mapName: mapName,
@@ -90,7 +122,9 @@ function wsSetup() {
             JSON.stringify({ messageType: "lobbydata", data: lobbydata })
           );
         } catch (e) {
-          webSocket.send(JSON.stringify({ messageType: "error", data: e }));
+          webSocket.send(
+            JSON.stringify({ messageType: "error", data: e.message })
+          );
         }
 
         break;
@@ -186,14 +220,15 @@ function wsSetup() {
 }
 
 function mutationsSetup() {
-  const config = { attributes: false, childList: true, subtree: true };
-  const callback = function (mutationsList, observer) {
+  const menusObserverCallback = function (mutationsList, menusObserver) {
     if (document.querySelector("div.MainMenuScreen-Copyright")) {
       newMenuState = "Main Menu";
     } else if (document.querySelector("div.GamesListing-List")) {
       newMenuState = "Browse Games";
     } else if (document.getElementById("root").innerText === "") {
       newMenuState = "None";
+    } else if (document.querySelector("div.TeamContainer")) {
+      newMenuState = "In Lobby";
     }
     if (newMenuState !== menuState) {
       menuState = newMenuState;
@@ -207,8 +242,12 @@ function mutationsSetup() {
       }
     }
   };
-  observer = new MutationObserver(callback);
-  observer.observe(document.getElementById("root"), config);
+  menusObserver = new MutationmenusObserver(menusObserverCallback);
+  menusObserver.observe(document.getElementById("root"), {
+    attributes: false,
+    childList: true,
+    subtree: true,
+  });
 }
 
 mutationsSetup();

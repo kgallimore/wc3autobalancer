@@ -18,10 +18,10 @@ const path = require("path");
 const Store = require("electron-store");
 const wss = new WebSocket.Server({ port: 8888 });
 
-const testNonUserRegex = new RegExp("(Slot \\d+ Open)|(Computer \\(\\S+\\))");
-const testNonPLayersTeam = new RegExp(
-  "/(computer)|(host)|(spectator)|(creep)/gmix"
+const testNonUserRegex = new RegExp(
+  /(Slot \d+ (Open Slot|Closed))|(Computer \(\S+\))/
 );
+
 var win;
 var appIcon;
 var socket = null;
@@ -167,6 +167,7 @@ function handleWSMessage(message) {
       console.log(message);
       break;
     case "lobbydata":
+      console.log(message.data);
       sendProgress("Grabbed Lobby", 10);
       socket.send(JSON.stringify({ messageType: "sendChat" }));
       processLobby(message.data);
@@ -200,103 +201,101 @@ function processLobby(list) {
     mapName = list.mapName.trim().replace(/\s/g, "%20");
   }
   let realUserCount = 0;
-  Object.keys(list.teamList).forEach(function (key) {
-    if (!testNonPLayersTeam.test(key)) {
-      list.teamList[key].forEach(function (user) {
-        if (!testNonUserRegex.test(user.trim())) {
-          if (!("team1" in list)) {
-            list.team1 = key;
-          } else if (!("team2" in list) && key !== list.team1) {
-            list.team2 = key;
-          }
-          realUserCount++;
-          https
-            .get(
-              `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
-                .trim()
-                .replace(/\s/g, "%20")}`,
-              (resp) => {
-                let datachunks = "";
+  Object.keys(list.teamList.playerTeams).forEach(function (key) {
+    list.teamList.playerTeams[key].forEach(function (user) {
+      if (!testNonUserRegex.test(user.trim())) {
+        if (!("team1" in list)) {
+          list.team1 = key;
+        } else if (!("team2" in list) && key !== list.team1) {
+          list.team2 = key;
+        }
+        realUserCount++;
+        https
+          .get(
+            `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
+              .trim()
+              .replace(/\s/g, "%20")}`,
+            (resp) => {
+              let datachunks = "";
 
-                // A chunk of data has been received.
-                resp.on("data", (chunk) => {
-                  datachunks += chunk;
-                });
+              // A chunk of data has been received.
+              resp.on("data", (chunk) => {
+                datachunks += chunk;
+              });
 
-                // The whole response has been received. Print out the result.
-                resp.on("end", () => {
-                  const jsonData = JSON.parse(datachunks);
-                  let elo = 500;
-                  if (jsonData.body.length > 0) {
-                    elo = jsonData.body[0].rating;
-                  }
-                  list.eloList[user] = elo;
-                  sendProgress(
-                    "Got ELO for " + user,
-                    realUserCount / Object.keys(list.eloList).length - 10
+              // The whole response has been received. Print out the result.
+              resp.on("end", () => {
+                const jsonData = JSON.parse(datachunks);
+                let elo = 500;
+                if (jsonData.body.length > 0) {
+                  elo = jsonData.body[0].rating;
+                }
+                list.eloList[user] = elo;
+                sendProgress(
+                  "Got ELO for " + user,
+                  realUserCount / Object.keys(list.eloList).length - 10
+                );
+                robot.typeStringDelayed(
+                  user + " ELO: " + elo.toString(),
+                  10000
+                );
+                robot.keyTap("enter");
+                if (Object.keys(list.eloList).length === realUserCount) {
+                  list.totalElo = Object.values(list.eloList).reduce(
+                    (a, b) => a + b,
+                    0
                   );
-                  robot.typeStringDelayed(
-                    user + " ELO: " + elo.toString(),
-                    10000
+                  let smallestEloDiff = Number.POSITIVE_INFINITY;
+                  let bestCombo = [];
+                  const combos = new Combination(
+                    Object.keys(list.eloList),
+                    Math.floor(Object.keys(list.eloList).length / 2)
                   );
-                  robot.keyTap("enter");
-                  if (Object.keys(list.eloList).length === realUserCount) {
-                    list.totalElo = Object.values(list.eloList).reduce(
-                      (a, b) => a + b,
+                  for (const combo of combos) {
+                    const comboElo = combo.reduce(
+                      (a, b) => a + parseInt(list.eloList[b]),
                       0
                     );
-                    let smallestEloDiff = Number.POSITIVE_INFINITY;
-                    let bestCombo = [];
-                    const combos = new Combination(
-                      Object.keys(list.eloList),
-                      Math.floor(Object.keys(list.eloList).length / 2)
-                    );
-                    for (const combo of combos) {
-                      const comboElo = combo.reduce(
-                        (a, b) => a + parseInt(list.eloList[b]),
-                        0
-                      );
-                      const eloDiff = Math.abs(list.totalElo / 2 - comboElo);
-                      if (eloDiff < smallestEloDiff) {
-                        smallestEloDiff = eloDiff;
-                        bestCombo = combo;
-                      }
+                    const eloDiff = Math.abs(list.totalElo / 2 - comboElo);
+                    if (eloDiff < smallestEloDiff) {
+                      smallestEloDiff = eloDiff;
+                      bestCombo = combo;
                     }
-                    list.bestCombo = bestCombo;
-                    list.eloDiff = smallestEloDiff;
-                    swapHelper(list);
+                  }
+                  list.bestCombo = bestCombo;
+                  list.eloDiff = smallestEloDiff;
+                  swapHelper(list);
 
-                    win.webContents.send("fromMain", {
-                      messageType: "lobbyElo",
-                      eloList: list,
-                    });
-                    console.log(list);
-                    if (!list.isHost) {
+                  win.webContents.send("fromMain", {
+                    messageType: "lobbyElo",
+                    eloList: list,
+                  });
+                  console.log(list);
+                  if (!list.isHost) {
+                    robot.typeStringDelayed(
+                      list.leastSwap + " should be: " + bestCombo.join(", "),
+                      10000
+                    );
+                    robot.keyTap("enter");
+                  } else {
+                    for (let i = 0; i < list.swaps[0].length; i++) {
                       robot.typeStringDelayed(
-                        list.leastSwap + " should be: " + bestCombo.join(", "),
+                        "!swap " + list.swaps[0][i] + " " + list.swaps[1][i],
                         10000
                       );
                       robot.keyTap("enter");
-                    } else {
-                      for (let i = 0; i < list.swaps[0].length; i++) {
-                        robot.typeStringDelayed(
-                          "!swap " + list.swaps[0][i] + " " + list.swaps[1][i],
-                          10000
-                        );
-                        robot.keyTap("enter");
-                        robot.keyTap("enter");
-                      }
+                      robot.keyTap("enter");
                     }
                   }
-                });
-              }
-            )
-            .on("error", (err) => {
-              console.log("Error: " + err.message);
-            });
-        }
-      });
-    }
+                }
+              });
+            }
+          )
+          .on("error", (err) => {
+            console.log("Error: " + err.message);
+          });
+      }
+    });
   });
 }
 
@@ -304,8 +303,14 @@ function swapHelper(list) {
   let swapsFromTeam1 = [];
   let swapsFromTeam2 = [];
   excludeHostFromSwap = true;
-  const bestComboInTeam1 = intersect(list.bestCombo, list.teamList[list.team1]);
-  const bestComboInTeam2 = intersect(list.bestCombo, list.teamList[list.team2]);
+  const bestComboInTeam1 = intersect(
+    list.bestCombo,
+    list.teamList.playerTeams[list.team1]
+  );
+  const bestComboInTeam2 = intersect(
+    list.bestCombo,
+    list.teamList.playerTeams[list.team2]
+  );
   // If not excludeHostFromSwap and team1 has more best combo people, or excludeHostFromSwap and the best combo includes the host keep all best combo players in team 1.
   if (
     (!excludeHostFromSwap &&
@@ -315,7 +320,7 @@ function swapHelper(list) {
     list.leastSwap = list.team1;
     // Go through team 1 and grab everyone who is not in the best combo
 
-    list.teamList[list.team1].forEach((user) => {
+    list.teamList.playerTeams[list.team1].forEach((user) => {
       if (!list.bestCombo.includes(user)) {
         swapsFromTeam1.push(user);
       }
@@ -327,7 +332,7 @@ function swapHelper(list) {
     });
   } else {
     list.leastSwap = list.team2;
-    list.teamList[list.team2].forEach((user) => {
+    list.teamList.playerTeams[list.team2].forEach((user) => {
       if (!list.bestCombo.includes(user)) {
         swapsFromTeam2.push(user);
       }
