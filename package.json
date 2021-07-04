@@ -5,12 +5,10 @@
   "description": "Auto Balance Warcraft 3 Lobbies",
   "main": "src/app.js",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
+    "publish": "electron-builder --publish always",
     "lint": "echo \"No linting configured\"",
-    "build": "electron-builder"
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
   "build": {
     "appId": "wc3autobalancer",
@@ -62,7 +60,9 @@
     }
   },
   "dependencies": {
+    "electron-log": "^4.3.5",
     "electron-store": "^8.0.0",
+    "electron-updater": "^4.3.9",
     "esm": "^3.2.25",
     "js-combinatorics": "^1.4.5",
     "robotjs": "github:octalmage/robotjs",

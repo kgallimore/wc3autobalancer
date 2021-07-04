@@ -11,6 +11,8 @@ const {
 } = require("electron");
 require = require("esm")(module);
 const { Combination } = require("js-combinatorics");
+const { autoUpdater } = require("electron-updater");
+const log = require("electron-log");
 var robot = require("robotjs");
 const https = require("https");
 const WebSocket = require("ws");
@@ -21,6 +23,9 @@ const wss = new WebSocket.Server({ port: 8888 });
 const testNonUserRegex = new RegExp(
   /(Slot \d+ (Open Slot|Closed))|(Computer \(\S+\))/
 );
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = "info";
+log.info("App starting...");
 
 var win;
 var appIcon;
@@ -64,6 +69,60 @@ ipcMain.on("toMain", (event, args) => {
         socket.send(JSON.stringify({ messageType: "lobby" }));
       }
   }
+});
+
+autoUpdater.on("checking-for-update", () => {
+  win.webContents.send("fromMain", {
+    messageType: "updater",
+    data: "Checking for update...",
+  });
+});
+autoUpdater.on("update-available", (info) => {
+  new Notification({
+    title: "Update Available",
+    body: "An update is available!",
+  }).show();
+  win.webContents.send("fromMain", {
+    messageType: "updater",
+    data: "Update available.",
+  });
+});
+autoUpdater.on("update-not-available", (info) => {
+  win.webContents.send("fromMain", {
+    messageType: "updater",
+    data: "Update not available.",
+  });
+});
+autoUpdater.on("error", (err) => {
+  win.webContents.send("fromMain", {
+    messageType: "updater",
+    data: "Error in auto-updater. " + err,
+  });
+});
+autoUpdater.on("download-progress", (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + " - Downloaded " + progressObj.percent + "%";
+  log_message =
+    log_message +
+    " (" +
+    progressObj.transferred +
+    "/" +
+    progressObj.total +
+    ")";
+  win.webContents.send("fromMain", {
+    messageType: "updater",
+    data: log_message,
+  });
+});
+autoUpdater.on("update-downloaded", (info) => {
+  new Notification({
+    title: "Update Downloaded",
+    body: "The latest version has been downloaded",
+  }).show();
+  win.webContents.send("fromMain", {
+    messageType: "updater",
+    data: "Update downloaded",
+  });
 });
 
 const createWindow = () => {
