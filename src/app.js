@@ -31,8 +31,11 @@ var win;
 var appIcon;
 var socket = null;
 var currentStatus = "Waiting For Connection";
+var gameNumber = 0;
+var autoHost = false;
 
 wss.on("connection", function connection(ws) {
+  log.info("Connection");
   socket = ws;
   sendStatus("connected");
   ws.on("message", handleWSMessage);
@@ -177,6 +180,7 @@ const createWindow = () => {
 };
 
 app.on("ready", function () {
+  log.info("App ready");
   globalShortcut.register("Alt+CommandOrControl+I", () => {
     if (socket) {
       socket.send(JSON.stringify({ messageType: "lobby" }));
@@ -185,6 +189,11 @@ app.on("ready", function () {
   globalShortcut.register("Alt+CommandOrControl+P", () => {
     if (socket) {
       socket.send(JSON.stringify({ messageType: "page" }));
+    }
+  });
+  globalShortcut.register("Alt+CommandOrControl+O", () => {
+    if (socket) {
+      socket.send(JSON.stringify({ messageType: "sendChat" }));
     }
   });
   createWindow();
@@ -222,30 +231,37 @@ function sendStatus(status = "Waiting For Connection") {
 function handleWSMessage(message) {
   message = JSON.parse(message);
   switch (message.messageType) {
+    case "robot":
+      gameNumber += 1;
+      robot.typeStringDelayed(
+        "HLW -SH Ranked #" + gameNumber.toString(),
+        10000
+      );
+      robot.keyTap("enter");
     case "info":
-      console.log(message);
+      log.info(message);
       break;
     case "lobbydata":
-      console.log(message.data);
+      log.info(message.data);
       sendProgress("Grabbed Lobby", 10);
       socket.send(JSON.stringify({ messageType: "sendChat" }));
       processLobby(message.data);
       break;
     case "error":
-      console.log(message);
+      log.info(message);
       win.webContents.send("fromMain", message);
       break;
     case "body":
-      console.log(message.data);
+      log.info(message.data);
       break;
     case "echo":
-      console.log(message);
+      log.info(message);
       break;
     case "chatReady":
       robot.typeStringDelayed("Please wait while I lookup your ELOs", 10000);
       robot.keyTap("enter");
     default:
-      console.log(message);
+      log.info(message);
   }
 }
 
@@ -329,7 +345,7 @@ function processLobby(list) {
                     messageType: "lobbyElo",
                     eloList: list,
                   });
-                  console.log(list);
+                  log.info(list);
                   if (!list.isHost) {
                     robot.typeStringDelayed(
                       list.leastSwap + " should be: " + bestCombo.join(", "),
@@ -345,13 +361,16 @@ function processLobby(list) {
                       robot.keyTap("enter");
                       robot.keyTap("enter");
                     }
+                    if (autoHost) {
+                      socket.send(JSON.stringify({ messageType: "start" }));
+                    }
                   }
                 }
               });
             }
           )
           .on("error", (err) => {
-            console.log("Error: " + err.message);
+            log.info("Error: " + err.message);
           });
       }
     });

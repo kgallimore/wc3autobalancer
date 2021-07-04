@@ -5,6 +5,7 @@
   "description": "Auto Balance Warcraft 3 Lobbies",
   "main": "src/app.js",
   "scripts": {
+    "start": "electron-forge start",
     "publish": "electron-builder --publish always",
     "lint": "echo \"No linting configured\"",
     "pack": "electron-builder --dir",
@@ -24,7 +25,14 @@
       "uninstallDisplayName": "WC3 Auto Balancer",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "kgallimore",
+        "repo": "wc3autobalancer"
+      }
+    ]
   },
   "keywords": [],
   "author": {
