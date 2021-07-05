@@ -2,8 +2,13 @@ const { contextBridge, ipcRenderer } = require("electron");
 const Store = require("electron-store");
 const store = new Store();
 
-var autoHost = store.get("autoHost");
-
+var autoHost = store.get("autoHost") || {
+  enabled: false,
+  mapName: "",
+  ghostHost: false,
+  gameName: "",
+};
+console.log(autoHost);
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld("api", {
@@ -27,22 +32,33 @@ window.addEventListener("DOMContentLoaded", () => {
   const autoHostCheck = document.getElementById("autoHostCheck");
   const ghostHostCheck = document.getElementById("ghostHostCheck");
   const autoHostMapName = document.getElementById("autoHostMapName");
+  const autoHostGameName = document.getElementById("autoHostGameName");
+
   function updateAutoHost(event) {
-    autoHostMapName.disabled = event.currentTarget.checked;
+    autoHostMapName.disabled = autoHostCheck.checked;
+    autoHostGameName.disabled = autoHostCheck.checked;
+    ghostHostCheck.disabled = !autoHostCheck.checked;
     ipcRenderer.send("toMain", {
       messageType: "autoHost",
       data: {
         enabled: autoHostCheck.checked,
-        ghost: ghostHostCheck.checked,
+        ghostHost: ghostHostCheck.checked,
         mapName: autoHostMapName.value,
+        gameName: autoHostGameName.value,
       },
     });
   }
-  autoHostCheck.checked = autoHost.enabled || false;
-  autoHostMapName.disabled = autoHost.enabled || false;
-  ghostHostCheck.disabled = autoHost.ghostHost || false;
-  ghostHostCheck.value = autoHost.ghostHost || false;
-  autoHostMapName.value = autoHost.mapName || "";
+  autoHostCheck.checked = autoHost.enabled;
+  ghostHostCheck.checked = autoHost.ghostHost;
+
+  ghostHostCheck.disabled = !autoHost.enabled;
+
+  autoHostMapName.disabled = autoHost.enabled;
+  autoHostMapName.value = autoHost.mapName;
+
+  autoHostGameName.disabled = autoHost.enabled;
+  autoHostGameName.value = autoHost.gameName;
+
   autoHostCheck.addEventListener("change", updateAutoHost);
   ghostHostCheck.addEventListener("change", updateAutoHost);
   /*

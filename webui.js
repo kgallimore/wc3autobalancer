@@ -1,6 +1,6 @@
 let webSocket, menusObserver, lobbyObserver, lobby;
 let menuState = "Out of Menus";
-let autoHost = { enabled: false, mapName: "", ghostHost =false };
+let autoHost = { enabled: false, mapName: "", ghostHost: false };
 const testNonPlayersTeam = new RegExp(/((computer)|(creep))/gi);
 const testSpecTeam = new RegExp(/((host)|(spectator)|(observer))/gi);
 const testSlotAvailable = new RegExp(/Slot \d+ (Open Slot|Closed)/i);

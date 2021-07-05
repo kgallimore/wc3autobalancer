@@ -250,7 +250,7 @@ function handleWSMessage(message) {
     case "robot":
       gameNumber += 1;
       robot.typeStringDelayed(
-        "HLW -SH Ranked #" + gameNumber.toString(),
+        autoHost.gameName + " #" + gameNumber.toString(),
         10000
       );
       robot.keyTap("enter");
