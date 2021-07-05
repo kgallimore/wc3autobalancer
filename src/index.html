@@ -1,39 +1,49 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>WC3 Auto Balancer</title>
-    <link rel="stylesheet" href="https://bootswatch.com/5/cyborg/bootstrap.min.css">
-    <script src="index.js"></script>
-  </head>
-  <body class="h-100">
-    <div class="d-flex justify-content-center p-2">
-    <span class="badge bg-secondary" id="mainStatus"><h1 id="statusText">Waiting For Connection</h1>
-    </span>
-      </div>
-        <div class="p-2"></div>
-        <h3>Menu State: <span id="menuStateLabel">Out of Menus</span></h3>
-        <h3>Current Step: <span id="progressbarLabel"></span></h3>
 
-      <div class="progress">
-        <div id="progressbar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0"
-          aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
-      </div>
-      </div>
-    <div class="p-2">
+<head>
+  <meta charset="UTF-8">
+  <title>WC3 Auto Balancer</title>
+  <link rel="stylesheet" href="https://bootswatch.com/5/cyborg/bootstrap.min.css">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+  <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+  <script src="index.js" defer></script>
+</head>
+
+<body class="h-100">
+  <div class="d-flex justify-content-center p-2">
+    <span class="badge bg-secondary" id="mainStatus">
+      <h1 id="statusText">Waiting For Connection</h1>
+    </span>
+  </div>
+  <div class="form-group p-2">
+  <input type="checkbox" class="btn-check" id="autoHostCheck" autocomplete="off">
+  <label class="btn btn-outline-success" for="autoHostCheck">Auto Host Lobby</label>
+  <input type="checkbox" class="btn-check" id="ghostHostCheck" autocomplete="off">
+  <label class="btn btn-outline-secondary" for="ghostHostCheck">Full Auto Host</label>
+  <input type="text" class="form-control" id="autoHostMapName" placeholder="Map name (exact match, no extension, no color)">
+  </div>
+  <h3>Menu State: <span id="menuStateLabel">Out of Menus</span></h3>
+  <h3>Current Step: <span id="progressbarLabel"></span></h3>
+  <div class="progress">
+    <div id="progressbar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+      aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+  </div>
+  </div>
+  <div class="p-2">
     <table class="table table-hover table-striped">
       <thead>
-            <tr>
-              <th scope="col">Team 1</th>
-              <th scope="col">Elo</th>
-              <th scope="col">Team 2</th>
-              <th scope="col">Elo</th>
-            </tr>
+        <tr>
+          <th scope="col">Team 1</th>
+          <th scope="col">Elo</th>
+          <th scope="col">Team 2</th>
+          <th scope="col">Elo</th>
+        </tr>
       </thead>
       <tbody id="lobbyListBody">
       </tbody>
     </table>
-    </div>
+  </div>
+</body>
 
-  </body>
 </html>

@@ -1,0 +1,714 @@
+<div class="enUS background">
+   <div class="preload" id="preload"></div>
+   <div class="BackgroundFrame" id="BackgroundFrame">
+      <div class="BackgroundTileTexture"></div>
+      <div class="BackgroundVideoFrame"></div>
+      <div class="BackgroundFrame-BackgroundVignette"></div>
+      <video id="BackgroundVideo" class="BackgroundVideo" loop="" autoplay="true" src="Webms/mainmenu.webm" type="video/webm"></video>
+   </div>
+   <div class="ChatFrame-Root inactive" style="zoom: 1.75;">
+      <div class="ChatFrame animationDone" style="animation: none 0s ease 0s 1 normal none running;">
+         <div class="ChatFrame-Container">
+            <div class="ChatFrame-BackgroundArtwork">
+               <div class="BaseFrame">
+                  <div class="frame-div"></div>
+                  <div class="frame"></div>
+                  <div class="background-texture"></div>
+               </div>
+            </div>
+            <div class="ChatFrame-Header">
+               <div class="ChatFrame-HeaderPlate"></div>
+               <div class="ChatFrame-ControlButtons-Holder">
+                  <div class="ChatFrame-ControlButtons">
+                     <div class="Primary-Button Primary-Button-Small" id="">
+                        <div class="Primary-Button-Content" style="">
+                           <div class="ChatFrame-FullScreenCollapse-Icon"></div>
+                        </div>
+                     </div>
+                     <div class="Primary-Button isDisabled Primary-Button-Small" id="">
+                        <div class="Primary-Button-Content">
+                           <div class="ChatFrame-ExpandFrame-Icon"></div>
+                        </div>
+                     </div>
+                     <div class="Primary-Button Primary-Button-Small" id="">
+                        <div class="Primary-Button-Content">
+                           <div class="ChatFrame-Pin-Icon isUnpinned"></div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+               <div class="Primary-Button isDisabled ChatFrame-JoinChannel-Button" id="">
+                  <div class="Primary-Button-Content">Join Channel</div>
+               </div>
+            </div>
+            <div class="ChatFrame-ChatContainer Trackless-Skinny-Scrollbar">
+               <div class="chatArea">
+                  <p class="chatMessage message chatMessage-hidden"><span class="hidden"><span class="chatArea-messagePrefix info_prepend"></span></span><span class="info"><span>Welcome to Battle.net</span></span></p>
+                  <p class="chatMessage message chatMessage-hidden"><span class="hidden"><span class="chatArea-messagePrefix info_prepend"></span></span><span class="info"><span style="color: rgb(255, 255, 255);">Joining Channel: </span><span style="color: rgb(254, 211, 18);">W3 General</span></span></p>
+                  <p class="chatMessage message chatMessage-hidden"><span class="hidden"><span class="chatArea-messagePrefix info_prepend"></span></span><span class="info"><span>You joined teeeeee.</span></span></p>
+                  <p class="chatMessage message chatMessage-hidden"><span class="hidden" style=""><span class="chatArea-messagePrefix info_prepend"></span></span><span style="" class="info"><span class="">You left teeeeee.</span></span></p>
+                  <p class="chatMessage message chatMessage-hidden"><span class="hidden" style=""><span class="chatArea-messagePrefix info_prepend"></span></span><span class="info"><span class="">You joined teeee.</span></span></p>
+                  <p class="chatMessage message chatMessage-hidden"><span class=""><span class="chatArea-messagePrefix auroraChat_prepend" style="">[1. W3 General] socwaloze: </span></span><span class="auroraChat"><span style="">UTHER PARTY 2 JOIN ALL + 2</span></span></p>
+               </div>
+            </div>
+            <div>
+               <div id="PartyFrame" class="PartyFrame-Root">
+                  <div class="PartyFrame">
+                     <div class="PartyFrame-PartyPlate">
+                        <div class="PartyView isLocked">
+                           <div class="PartyView-Holder PartyView-Self">
+                              <div class="PartyFrame-Portrait">
+                                 <div class="PartyFrame-PortraitFrame"></div>
+                                 <div class="PartyFrame-PlayerPortrait" style="background-image: url(&quot;Portraits/p001.png&quot;);"></div>
+                              </div>
+                           </div>
+                           <div class="PartyFrame-Portrait PartyFrame-PortraitAdd isDisabled" data-action="tooltip">
+                              <div class="Tooltip Tooltip-Top" position="top-center" style="top: -170px; left: 78.5px; opacity: 1;">
+                                 <div class="TooltipContent " style="">The arranged team feature is not available in custom games at this time.</div>
+                              </div>
+                              <div class="PartyFrame-PortraitFrame-Add"></div>
+                              <div class="Primary-Button Primary-Button-Small isDisabled" id="">
+                                 <div class="Primary-Button-Content"></div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+      <div class="ChatFrame-InputWrapper">
+         <div class="ChatFrame-Background-Artwork"></div>
+         <div class="SystemFrame SystemFrame-in">
+            <div class="Primary-Button Primary-Button-Small" id="SystemFrame-SocialBtn">
+               <div class="Primary-Button-Content">
+                  <div class="SystemFrame-Icon SystemFrame-SocialIcon"></div>
+               </div>
+            </div>
+            <div class="Primary-Button Primary-Button-Small" id="SystemFrame-SocialBtn">
+               <div class="Primary-Button-Content">
+                  <div class="SystemFrame-Icon SystemFrame-MenuIcon"></div>
+               </div>
+            </div>
+         </div>
+         <div class="ChatFrame-Input">
+            <div class="ChatFrame-InputContainer">
+               <label class="ChatFrame-ChannelName gameChat_prepend">[Lobby]: </label>
+               <div class="Input-Wrapper">
+                  <input type="text" spellcheck="false" id="chatPanelInput" class="BorderlessTextField gameChat" maxlength="255" imesymbol="">
+                  <div class="IME-Indicator roman"></div>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+   <div class="">
+      <div class="GameLobby-Container" style="zoom: 1.75;">
+         <div class="GameLobby-ContentContainer Animate-In">
+            <div class="BaseFrame">
+               <div class="left-chain-underglow"></div>
+               <div class="right-chain-underglow"></div>
+               <div class="left-chain"></div>
+               <div class="right-chain"></div>
+               <div class="frame-underglow"></div>
+               <div class="frame"></div>
+               <div class="background-texture"></div>
+            </div>
+            <div class="GameLobby-MainFrame Trackless-Scrollbar">
+               <div class="GameLobby-PlayerList-Scrollbar-Background-Frame"></div>
+               <div class="GameLobby-PlayersFrame-Scroll">
+                  <div class="GameLobby-PlayersFrame-BottomFade"></div>
+                  <div class="GameLobby-PlayersFrame">
+                     <div class="GameLobby-PlayersFrame-Left">
+                        <div class="TeamContainer">
+                           <div class="TeamContainer-Name withSound"><span>Team 1</span></div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-PlayerRow Player-Row isChangable">
+                                 <div id="TeamDropdown0" class="GameLobbyDropdown isDisabled GameLobby-Player-Team">
+                                    <div class="GameLobbyDropdown-Selected-Item">1</div>
+                                    <div class="GameLobbyDropdown-Options">
+                                       <div class="">1</div>
+                                       <div class="">2</div>
+                                       <div class="">3</div>
+                                       <div class="">4</div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div id="ColorDropdown0" class="GameLobbyDropdown GameLobby-Player-Color">
+                                    <div class="GameLobbyDropdown-Selected-Item">
+                                       <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(255, 3, 3);"></div>
+                                    </div>
+                                    <div class="GameLobbyDropdown-Options">
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(255, 3, 
+                                             3);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 66, 255);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(28, 230, 185);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(84, 0, 129);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(255, 252, 0);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(254, 138, 14);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(32, 192, 0);"></div>
+                                       </div>
+                                       <div 
+                                          class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(229, 91, 176);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(149, 150, 151);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(126, 191, 241);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(16, 98, 70);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(78, 42, 4);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(155, 0, 0);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 0, 195);"></div>
+                                       </div>
+                                       <div 
+                                          class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 234, 255);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(190, 0, 254);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(235, 205, 135);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(248, 164, 139);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(191, 255, 128);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(220, 185, 235);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(80, 
+                                             79, 85);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(235, 240, 255);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid" style="">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 120, 30);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(164, 111, 51);"></div>
+                                       </div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div class="GameLobby-PlayerMenu-Interactable isDisabled withSound">
+                                    <div class="GameLobby-PlayerName">
+                                       <div class="nameTag">Computer (Normal)</div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div id="RaceDropdown0" class="GameLobbyDropdown isDisabled GameLobby-PlayerRace">
+                                    <div class="GameLobbyDropdown-Selected-Item">Human</div>
+                                    <div class="GameLobbyDropdown-Options">
+                                       <div class="">Random</div>
+                                       <div class="">Human</div>
+                                       <div class="">Orc</div>
+                                       <div class="">Undead</div>
+                                       <div class="">Night Elf</div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div class="Handicap-Wrapper" data-action="tooltip">
+                                    <div class="Tooltip " position="custom" style="opacity: 1;">
+                                       <div class="TooltipContent Handicap-Tooltip">
+                                          <div class="Tooltip-Item-Label">Handicap</div>
+                                          <div class="Tooltip-Item"><span>Units for this player will have their maximum hit points adjusted to this percentage.</span></div>
+                                       </div>
+                                    </div>
+                                    <div id="PlayerHandicapDropdown0" class="GameLobbyDropdown isDisabled GameLobby-PlayerHandicap">
+                                       <div class="GameLobbyDropdown-Selected-Item">100%</div>
+                                       <div class="GameLobbyDropdown-Options">
+                                          <div class="">100%</div>
+                                          <div class="">90%</div>
+                                          <div class="">80%</div>
+                                          <div class="">70%</div>
+                                          <div class="">60%</div>
+                                          <div class="">50%</div>
+                                       </div>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="" style="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                        <div class="TeamContainer">
+                           <div class="TeamContainer-Name withSound"><span style="">Host</span></div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="" style="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                     <div class="GameLobby-PlayersFrame-Right">
+                        <div class="TeamContainer">
+                           <div class="TeamContainer-Name withSound"><span>Team 2</span></div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-PlayerRow Player-Row isChangable">
+                                 <div id="TeamDropdown1" class="GameLobbyDropdown isDisabled GameLobby-Player-Team">
+                                    <div class="GameLobbyDropdown-Selected-Item" style="">2</div>
+                                    <div class="GameLobbyDropdown-Options">
+                                       <div class="">1</div>
+                                       <div class="">2</div>
+                                       <div class="">3</div>
+                                       <div class="" style="">4</div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div id="ColorDropdown1" class="GameLobbyDropdown GameLobby-Player-Color">
+                                    <div class="GameLobbyDropdown-Selected-Item">
+                                       <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 66, 255);"></div>
+                                    </div>
+                                    <div class="GameLobbyDropdown-Options">
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(255, 3, 3);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 
+                                             66, 255);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(28, 230, 185);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(84, 0, 129);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(255, 252, 0);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(254, 138, 14);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(32, 192, 0);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(229, 91, 176);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(149, 150, 151);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(126, 191, 241);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(16, 98, 70);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(78, 42, 4);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(155, 0, 0);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 0, 195);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 234, 255);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(190, 0, 254);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(235, 205, 135);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(248, 164, 139);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(191, 255, 128);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(220, 185, 235);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(80, 79, 85);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(235, 240, 255);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(0, 120, 30);"></div>
+                                       </div>
+                                       <div class="GameLobby-Color invalid">
+                                          <div class="GameLobby-ColorDropdownItem" style="background-color: rgb(164, 111, 51);"></div>
+                                       </div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div class="GameLobby-PlayerMenu-Interactable isDisabled withSound">
+                                    <div 
+                                       class="GameLobby-PlayerName">
+                                       <div class="nameTag">Computer (Normal)</div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div id="RaceDropdown1" class="GameLobbyDropdown isDisabled GameLobby-PlayerRace">
+                                    <div class="GameLobbyDropdown-Selected-Item">Human</div>
+                                    <div class="GameLobbyDropdown-Options">
+                                       <div class="">Random</div>
+                                       <div class="">Human</div>
+                                       <div class="">Orc</div>
+                                       <div class="">Undead</div>
+                                       <div class="">Night Elf</div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider"></div>
+                                 <div class="Handicap-Wrapper" data-action="tooltip">
+                                    <div class="Tooltip " style="opacity: 1;" position="custom">
+                                       <div class="TooltipContent Handicap-Tooltip">
+                                          <div class="Tooltip-Item-Label">Handicap</div>
+                                          <div class="Tooltip-Item"><span>Units for this player will have their maximum hit points adjusted to this percentage.</span></div>
+                                       </div>
+                                    </div>
+                                    <div id="PlayerHandicapDropdown1" class="GameLobbyDropdown isDisabled GameLobby-PlayerHandicap">
+                                       <div class="GameLobbyDropdown-Selected-Item">100%</div>
+                                       <div class="GameLobbyDropdown-Options">
+                                          <div class="">100%</div>
+                                          <div class="">90%</div>
+                                          <div class="">80%</div>
+                                          <div class="">70%</div>
+                                          <div class="">60%</div>
+                                          <div class="">50%</div>
+                                       </div>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                        <div class="TeamContainer">
+                           <div class="TeamContainer-Name withSound"><span style="" class="">Spectator</span></div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="" style="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                        <div class="TeamContainer containerClass">
+                           <div class="TeamContainer-Name withSound"><span>Observer 
+                              Team</span>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-PlayerRow Player-Row isChangable">
+                                 <div id="TeamDropdown15" class="GameLobbyDropdown GameLobby-Player-Team">
+                                    <div class="GameLobbyDropdown-Selected-Item">
+                                       <div class="GameLobby-PlayerTeam-ObserverTeam"></div>
+                                    </div>
+                                    <div class="GameLobbyDropdown-Options">
+                                       <div class="">1</div>
+                                       <div class="">2</div>
+                                       <div class="">3</div>
+                                       <div class="" style="">4</div>
+                                       <div class="">
+                                          <div class="GameLobby-PlayerTeam-ObserverTeam" 
+                                             style=""></div>
+                                       </div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider" style=""></div>
+                                 <div class="GameLobby-PlayerMenu isSelf isDisabled" style="">
+                                    <div class="GameLobby-PlayerName isSelf" style="">
+                                       <div class="nameTag" style="">Trenchguns</div>
+                                    </div>
+                                 </div>
+                                 <div class="GameLobby-PlayerRow-Divider" style=""></div>
+                                 <div class="GameLobby-PlayerMenu GameLobby-PlayerName-Observer" style="">
+                                    <div class="GameLobby-PlayerName" style="">Observer</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound" style="">
+                                    <div class="">Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound" style="">
+                                    <div>Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div>Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div 
+                                 class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div>Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-PlayerRow-Container">
+                              <div class="GameLobby-EmptyRow Player-Row">
+                                 <div class="GameLobby-EmptyRow-AddButton withSound">
+                                    <div>Open Slot</div>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+               <div class="GameLobby-Summary-TopFade"></div>
+               <div class="GameLobby-Summary-BottomFade"></div>
+               <div class="GameLobby-DetailsFrame">
+                  <div class="GameLobby-DetailsFrame-TopVerticalDivider"></div>
+                  <div class="GameLobby-DetailsFrame-LeftHorizontalDivider"></div>
+                  <div class="GameLobby-DetailsFrame-RightHorizontalDivider"></div>
+                  <div class="GameLobby-MapPreviewFrame">
+                     <div class="GameLobby-MapPreviewImage" style="background-image: url(&quot;map-preview/C:/Users/Trenchguns/Documents/Warcraft III/Maps/Download/PyroTDLeague2.03H.w3x&quot;);"></div>
+                  </div>
+                  <div class="GameLobby-DetailsContent Trackless-Skinny-Scrollbar">
+                     <div class="GameLobby-Summary-Scrollbar-Background-Frame"></div>
+                     <div class="GameLobby-Summary">
+                        <div class="GameLobby-Details">
+                           <div class="GameSummary-GameName GameLobby-DetailAttribute">
+                              <div class="GameSummary-GameName GameLobby-DetailAttributeLabel">Game Name:</div>
+                              <div class="GameSummary-GameName GameLobby-DetailAttributeValue">teeee</div>
+                           </div>
+                           <div class="GameLobby-Details-Bottom">
+                              <div class="GameSummary-HostContainer">
+                                 <div class="GameSummary-Host GameLobby-DetailAttribute">
+                                    <div class="GameSummary-Host GameLobby-DetailAttributeLabel">Host:</div>
+                                    <div class="GameSummary-Host GameLobby-DetailAttributeValue">Trenchguns</div>
+                                 </div>
+                              </div>
+                              <div class="GameSummary-Players GameLobby-DetailAttribute">
+                                 <div class="GameSummary-Players GameLobby-DetailAttributeLabel">Players:</div>
+                                 <div class="GameSummary-Players GameLobby-DetailAttributeValue">2/15 (8)</div>
+                              </div>
+                           </div>
+                        </div>
+                        <div class="Framed-Secondary-Button">
+                           <div class="Primary-Button-Frame-Alternate-B">
+                              <div class="Primary-Button Primary-Button-Green" id="">
+                                 <div class="Primary-Button-Content">
+                                    <div>Start Game</div>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                     <div class="GameLobby-MapDetailsFrame">
+                        <div class="GameLobby-MapInfo">
+                           <div class="GameLobby-MapPreviewHeader">
+                              <div class="GameLobby-MapIcon">
+                                 <div class="GameLobby-MaxPlayerSize">24</div>
+                              </div>
+                              <div class="GameLobby-MapDetails-Container">
+                                 <div class="GameLobby-MapDetails-MapName"><span style="color: rgb(255, 204, 0);">Pyro TD League 2.03H</span></div>
+                                 <div class="GameLobby-MapAuthor">Author: <span class="">PyroTDLeague</span></div>
+                              </div>
+                           </div>
+                           <div class="GameLobby-MapDescription"><span class="">Official Website : https://pyrotdleague.com
+                              Discord Link : https://discord.gg/VAfJvsDrJj
+                              Edited by : Tipou
+                              Pyro TD League : Gal1leo and Tipou
+                              Special thanks to all Staff members!</span>
+                           </div>
+                           <div class="GameLobby-MapAttribute">
+                              <div class="GameLobby-MapAttributeLabel">Suggested Players:</div>
+                              <div class="GameLobby-MapAttributeValue">2-8 Players</div>
+                           </div>
+                           <div class="GameLobby-MapAttribute">
+                              <div class="GameLobby-MapAttributeLabel">Map Size:</div>
+                              <div class="GameLobby-MapAttributeValue">Extra Small</div>
+                           </div>
+                           <div class="GameLobby-MapAttribute">
+                              <div class="GameLobby-MapAttributeLabel">Game Speed:</div>
+                              <div class="GameLobby-MapAttributeValue">Fast</div>
+                           </div>
+                           <div class="GameLobby-MapAttribute">
+                              <div class="GameLobby-MapAttributeLabel">Lock Teams:</div>
+                              <div class="GameLobby-MapAttributeValue">On</div>
+                           </div>
+                           <div class="GameLobby-MapAttribute">
+                              <div class="GameLobby-MapAttributeLabel">Teams Together:</div>
+                              <div class="GameLobby-MapAttributeValue">On</div>
+                           </div>
+                           <div class="GameLobby-MapAttribute">
+                              <div class="GameLobby-MapAttributeLabel">Observers:</div>
+                              <div class="GameLobby-MapAttributeValue">Full Observers</div>
+                           </div>
+                           <div class="GameLobby-MapAttribute">
+                              <div class="GameLobby-MapAttributeLabel">Visibility:</div>
+                              <div class="GameLobby-MapAttributeValue">Default</div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+      <div class="GameLobby-Btns" style="zoom: 1.75;">
+         <div class="Primary-Back-Button">
+            <div class="Primary-Button-Frame-Alternate-B">
+               <div class="Primary-Button Primary-Button-Red" id="">
+                  <div class="Primary-Button-Content">
+                     <div class="EscapeIcon"></div>
+                     <div>Leave</div>
+                  </div>
+               </div>
+            </div>
+         </div>
+         <div class="ReportBtn-Container">
+            <div class="Framed-Secondary-Button">
+               <div class="Primary-Button-Frame-Alternate-B">
+                  <div class="Primary-Button GameLobby-Report Primary-Button-Small" id="">
+                     <div class="Primary-Button-Content">
+                        <div class="GameLobby-ReportIcon"></div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+   <div class="ToastFrame" style="zoom: 1.75;"></div>
+   <div class="Persistent-CornerDecorations">
+      <div class="Persistent-Left-Corner" style="transform: translateZ(0px) scale(1.75) scaleX(-1) translateX(-258px); transform-origin: left bottom 0px;">
+         <video id="leftCornerDecoration" autoplay="true" src="Webms/corner-machinery-animated.webm" type="video/webm"></video>
+      </div>
+      <div class="Persistent-Right-Corner" style="transform: translateZ(0px) scale(1.75); transform-origin: right bottom 0px;">
+         <video id="rightCornerDecoration" autoplay="true" src="Webms/corner-machinery-animated.webm" type="video/webm"></video>
+      </div>
+   </div>
+</div>

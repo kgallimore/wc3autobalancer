@@ -21,8 +21,10 @@ const Store = require("electron-store");
 const wss = new WebSocket.Server({ port: 8888 });
 
 const testNonUserRegex = new RegExp(
-  /(Slot \d+ (Open Slot|Closed))|(Computer \(\S+\))/
+  /(Slot \d+ (Open Slot|Closed))|(Computer \(\S+\))/i
 );
+const store = new Store();
+
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 log.info("App starting...");
@@ -32,15 +34,17 @@ var appIcon;
 var socket = null;
 var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
-var autoHost = false;
+var autoHost = store.get("autoHost");
 var menuState = "Out of Menus";
 
 wss.on("connection", function connection(ws) {
   log.info("Connection");
   socket = ws;
+  sendSocket("autoHost", autoHost);
   sendStatus("connected");
   ws.on("message", handleWSMessage);
   ws.on("close", function close() {
+    log.warn("Socket closed");
     socket = null;
     sendProgress();
     sendStatus("disconnected");
@@ -48,7 +52,7 @@ wss.on("connection", function connection(ws) {
 });
 
 ipcMain.on("toMain", (event, args) => {
-  switch (args) {
+  switch (args.messageType) {
     case "getLobby":
     case "getPage":
     case "start":
@@ -56,6 +60,14 @@ ipcMain.on("toMain", (event, args) => {
     case "sendChat":
       if (socket) {
         socket.send(JSON.stringify({ messageType: args }));
+      }
+      break;
+    case "autoHost":
+      log.info("Autohost", args.data);
+      autoHost = args.data;
+      store.set("autoHost", args.data);
+      if (socket) {
+        socket.send(JSON.stringify(args));
       }
       break;
     case "getElementPos":
@@ -69,9 +81,7 @@ ipcMain.on("toMain", (event, args) => {
       }
       break;
     default:
-      if (socket) {
-        socket.send(JSON.stringify({ messageType: "lobby" }));
-      }
+      log.info(args);
   }
 });
 
@@ -187,6 +197,11 @@ app.on("ready", function () {
       socket.send(JSON.stringify({ messageType: "lobby" }));
     }
   });
+  globalShortcut.register("Alt+CommandOrControl+S", () => {
+    if (socket) {
+      socket.send(JSON.stringify({ messageType: "spectate" }));
+    }
+  });
   globalShortcut.register("Alt+CommandOrControl+P", () => {
     if (socket) {
       socket.send(JSON.stringify({ messageType: "page" }));
@@ -243,6 +258,7 @@ function handleWSMessage(message) {
       log.info(message.data);
       break;
     case "menusChange":
+      menuState = message.data;
       sendWindow(message);
       log.info(message);
       break;
@@ -253,7 +269,7 @@ function handleWSMessage(message) {
       processLobby(message.data);
       break;
     case "error":
-      log.info(message);
+      log.error(message);
       win.webContents.send("fromMain", message);
       break;
     case "body":
@@ -283,12 +299,12 @@ function processLobby(list) {
   let realUserCount = 0;
   Object.keys(list.teamList.playerTeams).forEach(function (key) {
     list.teamList.playerTeams[key].forEach(function (user) {
+      if (!("team1" in list)) {
+        list.team1 = key;
+      } else if (!("team2" in list) && key !== list.team1) {
+        list.team2 = key;
+      }
       if (!testNonUserRegex.test(user.trim())) {
-        if (!("team1" in list)) {
-          list.team1 = key;
-        } else if (!("team2" in list) && key !== list.team1) {
-          list.team2 = key;
-        }
         realUserCount++;
         https
           .get(
@@ -313,7 +329,7 @@ function processLobby(list) {
                 list.eloList[user] = elo;
                 sendProgress(
                   "Got ELO for " + user,
-                  realUserCount / Object.keys(list.eloList).length - 10
+                  Object.keys(list.eloList).length / realUserCount - 10
                 );
                 robot.typeStringDelayed(
                   user + " ELO: " + elo.toString(),
@@ -366,7 +382,7 @@ function processLobby(list) {
                       robot.keyTap("enter");
                       robot.keyTap("enter");
                     }
-                    if (autoHost) {
+                    if (autoHost.enabled && autoHost.ghostHost) {
                       socket.send(JSON.stringify({ messageType: "start" }));
                       setTimeout(quitEndGame, 60000);
                     }
@@ -376,7 +392,7 @@ function processLobby(list) {
             }
           )
           .on("error", (err) => {
-            log.info("Error: " + err.message);
+            log.error("Error: " + err.message);
           });
       }
     });
@@ -402,6 +418,7 @@ function swapHelper(list) {
     list.bestCombo,
     list.teamList.playerTeams[list.team2]
   );
+  log.info(bestComboInTeam1, bestComboInTeam2);
   // If not excludeHostFromSwap and team1 has more best combo people, or excludeHostFromSwap and the best combo includes the host keep all best combo players in team 1.
   if (
     (!excludeHostFromSwap &&
@@ -423,6 +440,9 @@ function swapHelper(list) {
     });
   } else {
     list.leastSwap = list.team2;
+    // TODO fix crash
+    log.info(list.teamList.playerTeams);
+    log.info(list.teamList.playerTeams);
     list.teamList.playerTeams[list.team2].forEach((user) => {
       if (!list.bestCombo.includes(user)) {
         swapsFromTeam2.push(user);
@@ -442,4 +462,10 @@ function intersect(a, b) {
 
 function sendWindow(message) {
   win.webContents.send("fromMain", message);
+}
+
+function sendSocket(messageType = "info", data = "none") {
+  if (socket) {
+    socket.send(JSON.stringify({ messageType: messageType, data: data }));
+  }
 }
