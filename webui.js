@@ -51,8 +51,6 @@ webSocket.onmessage = function (event) {
 };
 
 function mutationsSetup() {
-  const lobbyObserverCallback = function (mutationsList, menusObserver) {};
-
   const menusObserverCallback = function (mutationsList, menusObserver) {
     if (document.querySelector("div.MainMenuScreen-Copyright")) {
       newMenuState = "Main Menu";
@@ -82,27 +80,26 @@ function mutationsSetup() {
               setTimeout(createLobby, 1000);
             }
             break;
-          case "In Lobby":
-            creatingLobby = false;
-            setTimeout(handleLobby, 1000);
-            break;
           case "Score Screen":
             document.querySelector("div.EscapeIcon").click();
             break;
         }
       }
-
-      if (webSocket) {
-        webSocket.send(
-          JSON.stringify({
-            messageType: "info",
-            data: menuState,
-          })
-        );
+      if (newMenuState === "In Lobby") {
+        creatingLobby = false;
+        document.querySelectorAll("div.nameTag").forEach(function (element) {
+          lobbyObserver.observe(element, {
+            attributes: false,
+            childList: false,
+            subtree: false,
+          });
+        });
       }
+      sendSocket("menusChange", menuState);
     }
   };
   menusObserver = new MutationObserver(menusObserverCallback);
+  lobbyObserver = new MutationObserver(handleLobby);
   menusObserver.observe(document.getElementById("root"), {
     attributes: false,
     childList: true,

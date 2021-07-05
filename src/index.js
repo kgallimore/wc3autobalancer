@@ -25,6 +25,9 @@ window.api.receive("fromMain", (data) => {
         data.data.progress.toString() + "%";
       document.getElementById("progressbarLabel").innerText = data.data.step;
       break;
+    case "menusChange":
+      document.getElementById("menuStateLabel").innerText = data.data;
+      break;
     case "error":
       break;
     default:

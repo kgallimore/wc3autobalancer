@@ -33,6 +33,7 @@ var socket = null;
 var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
 var autoHost = false;
+var menuState = "Out of Menus";
 
 wss.on("connection", function connection(ws) {
   log.info("Connection");
@@ -239,6 +240,10 @@ function handleWSMessage(message) {
       );
       robot.keyTap("enter");
     case "info":
+      log.info(message.data);
+      break;
+    case "menusChange":
+      sendWindow(message);
       log.info(message);
       break;
     case "lobbydata":
@@ -363,6 +368,7 @@ function processLobby(list) {
                     }
                     if (autoHost) {
                       socket.send(JSON.stringify({ messageType: "start" }));
+                      setTimeout(quitEndGame, 60000);
                     }
                   }
                 }
@@ -375,6 +381,13 @@ function processLobby(list) {
       }
     });
   });
+}
+
+function quitEndGame() {
+  if (menuState === "Out of Menus") {
+    robot.keyTap("q");
+    setTimeout(quitEndGame, 15000);
+  }
 }
 
 function swapHelper(list) {
@@ -425,4 +438,8 @@ function swapHelper(list) {
 function intersect(a, b) {
   var setB = new Set(b);
   return [...new Set(a)].filter((x) => setB.has(x));
+}
+
+function sendWindow(message) {
+  win.webContents.send("fromMain", message);
 }
