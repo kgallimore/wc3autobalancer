@@ -172,10 +172,9 @@ function clickCustomGames() {
 
 function handleLobby() {
   lobby = getLobbyData();
-  sendSocket("info", lobby);
   if (lobby) {
     Object.keys(lobby.teamList.playerTeams).forEach(function (playerTeamName) {
-      if (list.teamList.playerTeams.playerTeamName.openSlots === 0) {
+      if (list.teamList.playerTeams[playerTeamName].openSlots > 0) {
         return;
       }
     });
