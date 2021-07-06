@@ -1,9 +1,21 @@
 let webSocket, menusObserver, lobbyObserver, lobby;
 let menuState = "Out of Menus";
+let joiningLobby = false;
 let autoHost = { enabled: false, mapName: "", ghostHost: false };
-const testNonPlayersTeam = new RegExp(/((computer)|(creep))/gi);
-const testSpecTeam = new RegExp(/((host)|(spectator)|(observer))/gi);
-const testSlotAvailable = new RegExp(/Slot \d+ (Open Slot|Closed)/i);
+const testNonPlayersTeam = /((computer)|(creep))/i;
+const testSpecTeam = /((host)|(spectator)|(observer))/i;
+const testSlotAvailable = /Slot \d+ (Open Slot|Closed)/i;
+const testSlotOpen = /Open/i;
+const testComputer = /(Computer \(\S+\))/i;
+const testGameName = / #\d+$/;
+
+function emptyTeams() {
+  this.slots = [];
+  this.players = [];
+  this.openSlots = 0;
+  this.closedSlots = 0;
+  this.computers = 0;
+}
 
 function wsSetup() {
   webSocket = new WebSocket("ws://127.0.0.1:8888");
@@ -74,46 +86,65 @@ function mutationsSetup() {
       newMenuState = "In Lobby";
     } else if (document.querySelector("div.ScoreScreen-Table")) {
       newMenuState = "Score Screen";
+    } else {
+      newMenuState = "Unknown";
     }
     if (newMenuState !== menuState) {
+      joiningLobby = false;
       menuState = newMenuState;
       sendSocket("menusChange", menuState);
       if (autoHost.enabled) {
         switch (newMenuState) {
           case "Main Menu":
-            setTimeout(clickCustomGames, 1000);
+            clickCustomGames();
             break;
           case "Browse Games":
-            setTimeout(clickCreate, 1000);
+            clickCreate();
             break;
           case "Creating Game":
-            setTimeout(createLobby, 1000);
+            createLobby();
             break;
           case "Score Screen":
-            document.querySelector("div.EscapeIcon").click();
+            if (autoHost.enabled) {
+              document.querySelector("div.EscapeIcon").click();
+            }
             break;
         }
       }
-      if (newMenuState === "In Lobby") {
-        lobby = getLobbyData();
-        if (autoHost.enabled && autoHost.ghostHost) {
-          moveInLobby();
-        }
+
+      if (menuState === "In Lobby") {
         try {
-          document
-            .querySelectorAll("div.GameLobby-PlayerRow-Container")
-            .forEach(function (element) {
-              lobbyObserver.observe(element, {
-                attributes: false,
-                childList: true,
-                subtree: true,
-              });
-            });
+          lobby = getLobbyData();
         } catch (e) {
-          sendSocket("error", ["In Lobby", e.message]);
+          sendSocket("error", ["Lobby error", e.message]);
+        }
+        if (autoHost.enabled) {
+          if (autoHost.ghostHost) {
+            moveInLobby();
+          }
+          try {
+            document
+              .querySelectorAll("div.GameLobby-PlayerRow-Container")
+              .forEach(function (element) {
+                lobbyObserver.observe(element, {
+                  attributes: false,
+                  childList: true,
+                  subtree: true,
+                });
+              });
+          } catch (e) {
+            sendSocket("error", ["In Lobby", e.message]);
+          }
         }
       } else {
-        lobbyObserver.disconnect();
+        sendSocket("info", ["else!!", inLobby]);
+        if (lobbyObserver) {
+          try {
+            lobbyObserver.disconnect();
+          } catch (e) {
+            sendSocket("error", ["Lobby Observer Disconnect", e.message]);
+          }
+        }
       }
     }
   };
@@ -140,16 +171,13 @@ function clickCustomGames() {
 }
 
 function handleLobby() {
-  sendSocket("info", "handleLobby");
   lobby = getLobbyData();
+  sendSocket("info", lobby);
   if (lobby) {
-    Onject.values(lobby.teamList.playerTeams).forEach(function (teamPlayers) {
-      teamPlayers.forEach(function (user) {
-        if (testSlotAvailable.test(user)) {
-          sendSocket("info", user);
-          return;
-        }
-      });
+    Object.keys(lobby.teamList.playerTeams).forEach(function (playerTeamName) {
+      if (list.teamList.playerTeams.playerTeamName.openSlots === 0) {
+        return;
+      }
     });
     sendSocket("lobbydata", lobby);
   }
@@ -173,21 +201,10 @@ function moveInLobby() {
     try {
       if (lobby && lobby.teamList.specTeams !== {}) {
         Object.keys(lobby.teamList.specTeams).forEach(function (teamName) {
-          if (
-            lobby.teamList.specTeams[teamName].some((e) =>
-              testSlotAvailable.test(e)
-            )
-          ) {
+          if (lobby.teamList.specTeams[teamName].openSlots > 0) {
             document
               .querySelectorAll("div.TeamContainer-Name")
               .forEach((teamNameDiv) => {
-                sendSocket("info", [
-                  teamNameDiv.innerText
-                    .toLowerCase()
-                    .replace(/(\r\n|\n|\r)/gm, ""),
-                  teamName.toLowerCase(),
-                ]);
-
                 if (
                   teamNameDiv.innerText
                     .toLowerCase()
@@ -214,7 +231,7 @@ function clickStart() {
     ).firstChild.firstChild;
     element.click();
   } catch (e) {
-    sendSocket("error", ["clickStart", e.message]);
+    sendSocket("error", ["clickStart", e.message + "\n" + e.stack]);
   }
 }
 
@@ -232,59 +249,78 @@ function clickCreate() {
 }
 
 function createLobby() {
-  try {
-    if (
-      document
-        .getElementById("MapItem-0")
-        .innerText.toLowerCase()
-        .replace(/(\r\n|\n|\r)/gm, "") === "download"
-    ) {
-      document.getElementById("MapItem-0").click();
-      try {
+  if (menuState === "Creating Game") {
+    try {
+      const isInMapDownloads =
+        document.getElementById("MapItem-0") &&
         document
-          .querySelector("div.CreateGameMenu-DirectoryDetails")
-          .querySelector("div.Primary-Button-Frame-Alternate-B")
-          .firstChild.firstChild.click();
-      } catch (e) {
-        sendSocket("error", ["Get map", e.message]);
-        setTimeout(createLobby, 500);
-        return;
+          .getElementById("MapItem-0")
+          .innerText.toLowerCase()
+          .replace(/(\r\n|\n|\r)/gm, "") === "download";
+
+      const isIncorrectMap =
+        document.querySelector("div.CreateGameMenu-MapDetails-MapName") &&
+        document
+          .querySelector("div.CreateGameMenu-MapDetails-MapName")
+          .innerText.replace(/(\r\n|\n|\r)/gm, "")
+          .toLowerCase() !== autoHost.mapName.toLowerCase();
+
+      const isGameNameUnfocused =
+        document.querySelector("div.CreateGameMenu-CreateButton-Holder") &&
+        document
+          .querySelector("div.CreateGameMenu-CreateButton-Holder")
+          .classList.contains("disabled");
+
+      const isValidGameName = testGameName.test(
+        document.querySelector("div.CreateGameMenu-GameName input").value
+      );
+
+      if (isInMapDownloads) {
+        document.getElementById("MapItem-0").click();
+        setTimeout(() => {
+          const button = document.querySelector(
+            "div.CreateGameMenu-DirectoryDetails div.Primary-Button-Frame-Alternate-B > div > div"
+          );
+          if (button) button.click();
+        }, 100);
+      }
+      // If the current map selected is not equal to the autoHost.mapName, find it and click it
+      else if (isIncorrectMap) {
+        document
+          .querySelectorAll(
+            ".CreateGameMenu-MapList div.CreateGameMenu-MapItem-Label"
+          )
+          .forEach(function (button) {
+            if (
+              button.innerText.toLowerCase().replace(/(\r\n|\n|\r)/gm, "") ===
+              autoHost.mapName.toLowerCase()
+            ) {
+              button.click();
+            }
+          });
+      }
+      // If the create button is not enabled, focus the game name input and tell the main program to start typing the name
+      else if (isGameNameUnfocused) {
+        if (!joiningLobby) {
+          document.querySelector("div.CreateGameMenu-GameName input").focus();
+          sendSocket("robot");
+        }
+      }
+      // If the input field is set to the correct game name, click create game
+      if (!isIncorrectMap && isValidGameName) {
+        document
+          .querySelector(
+            "div.CreateGameMenu-CreateButton-Holder div.Primary-Button-Content"
+          )
+          .click();
+        joiningLobby = true;
       }
 
-      setTimeout(createLobby, 2000);
-      return;
+      setTimeout(createLobby, 1000);
+    } catch (e) {
+      setTimeout(createLobby, 1000);
+      sendSocket("error", ["createLobby", e.message + "\n" + e.stack]);
     }
-    if (
-      document
-        .querySelector("div.CreateGameMenu-CreateButton-Holder")
-        .classList.contains("disabled")
-    ) {
-      document
-        .querySelector("div.CreateGameMenu-MapList")
-        .querySelectorAll("div.CreateGameMenu-MapItem-Label")
-        .forEach(function (button) {
-          if (
-            button.innerText.toLowerCase().replace(/(\r\n|\n|\r)/gm, "") ===
-            autoHost.mapName.toLowerCase()
-          ) {
-            button.click();
-            document
-              .querySelector("div.CreateGameMenu-GameName")
-              .querySelector("input")
-              .focus();
-            sendSocket("robot");
-            setTimeout(createLobby, 2000);
-            return;
-          }
-        });
-    } else {
-      document
-        .querySelector("div.CreateGameMenu-CreateButton-Holder")
-        .querySelector("div.Primary-Button-Content")
-        .click();
-    }
-  } catch (e) {
-    sendSocket("error", ["createLobby", e.message]);
   }
 }
 
@@ -305,12 +341,14 @@ function getLobbyData() {
     const gameHost = document.querySelector(
       "div.GameSummary-Host.GameLobby-DetailAttributeValue"
     ).innerText;
-    const playerCount = document.querySelector(
+    const mapPlayers = document.querySelector(
       "div.GameSummary-Players.GameLobby-DetailAttributeValue"
     ).innerText;
     const isHost =
       document.querySelector("div.Primary-Button.Primary-Button-Green") != null;
     let teamList = { playerTeams: {}, otherTeams: {}, specTeams: {} };
+    let playerCount = 0;
+    let countPlayers = false;
 
     document
       .querySelectorAll("div.TeamContainer")
@@ -318,64 +356,53 @@ function getLobbyData() {
         const teamName =
           container.querySelector("div.TeamContainer-Name").innerText ||
           "Team " + (Object.keys(teamList).length + 1).toString();
+        var teamPointer;
         if (testNonPlayersTeam.test(teamName)) {
-          teamList.otherTeams[teamName] = [];
-
-          container
-            .querySelectorAll("div.GameLobby-PlayerRow-Container")
-            .forEach(function (playerRow) {
-              if (playerRow.querySelector("div.GameLobby-EmptyRow") == null) {
-                const playerName =
-                  playerRow.querySelector("div.nameTag").innerText;
-                teamList.otherTeams[teamName].push(playerName);
-              } else {
-                teamList.otherTeams[teamName].push(
-                  "Slot " +
-                    (teamList.otherTeams[teamName].length + 1).toString() +
-                    " " +
-                    playerRow.innerText.replace(/(\r\n|\n|\r)/gm, "")
-                );
-              }
-            });
+          countPlayers = false;
+          teamList.otherTeams[teamName] = new emptyTeams();
+          teamPointer = teamList.otherTeams[teamName];
         } else if (testSpecTeam.test(teamName)) {
-          teamList.specTeams[teamName] = [];
-
-          container
-            .querySelectorAll("div.GameLobby-PlayerRow-Container")
-            .forEach(function (playerRow) {
-              if (playerRow.querySelector("div.GameLobby-EmptyRow") == null) {
-                const playerName =
-                  playerRow.querySelector("div.nameTag").innerText;
-                teamList.specTeams[teamName].push(playerName);
-              } else {
-                teamList.specTeams[teamName].push(
-                  "Slot " +
-                    (teamList.specTeams[teamName].length + 1).toString() +
-                    " " +
-                    playerRow.innerText.replace(/(\r\n|\n|\r)/gm, "")
-                );
-              }
-            });
+          countPlayers = false;
+          teamList.specTeams[teamName] = new emptyTeams();
+          teamPointer = teamList.specTeams[teamName];
         } else {
-          teamList.playerTeams[teamName] = [];
-
-          container
-            .querySelectorAll("div.GameLobby-PlayerRow-Container")
-            .forEach(function (playerRow) {
-              if (playerRow.querySelector("div.GameLobby-EmptyRow") == null) {
-                const playerName =
-                  playerRow.querySelector("div.nameTag").innerText;
-                teamList.playerTeams[teamName].push(playerName);
-              } else {
-                teamList.playerTeams[teamName].push(
-                  "Slot " +
-                    (teamList.playerTeams[teamName].length + 1).toString() +
-                    " " +
-                    playerRow.innerText.replace(/(\r\n|\n|\r)/gm, "")
-                );
-              }
-            });
+          countPlayers = true;
+          teamList.playerTeams[teamName] = new emptyTeams();
+          teamPointer = teamList.playerTeams[teamName];
         }
+        container
+          .querySelectorAll("div.GameLobby-PlayerRow-Container")
+          .forEach(function (playerRow) {
+            if (playerRow.querySelector("div.GameLobby-EmptyRow") == null) {
+              const playerName =
+                playerRow.querySelector("div.nameTag").innerText;
+              teamPointer.slots.push(playerName);
+              if (!testComputer.test(playerName)) {
+                teamPointer.players.push(playerName);
+                if (countPlayers) {
+                  playerCount++;
+                }
+              } else {
+                teamPointer.computers++;
+              }
+            } else {
+              const slotTitle = playerRow.innerText.replace(
+                /(\r\n|\n|\r)/gm,
+                ""
+              );
+              if (testSlotOpen.test(slotTitle)) {
+                teamPointer.openSlots++;
+              } else {
+                teamPointer.closedSlots++;
+              }
+              teamPointer.slots.push(
+                "Slot " +
+                  (teamPointer.slots.length + 1).toString() +
+                  " " +
+                  slotTitle
+              );
+            }
+          });
       });
     return {
       mapName: mapName,
@@ -384,16 +411,17 @@ function getLobbyData() {
       gameName: gameName,
       gameHost: gameHost,
       isHost: isHost,
+      mapPlayers: mapPlayers,
       playerCount: playerCount,
       teamList: teamList,
     };
   } catch (e) {
-    sendSocket("error", e.message);
+    sendSocket("error", e.message + "\n" + e.stack);
     return false;
   }
 }
 
-function sendSocket(messageType = "info", data = "none") {
+function sendSocket(messageType = "info", data = messageType) {
   webSocket.send(JSON.stringify({ messageType: messageType, data: data }));
 }
 

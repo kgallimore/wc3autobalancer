@@ -1,12 +1,14 @@
 const { contextBridge, ipcRenderer } = require("electron");
 const Store = require("electron-store");
 const store = new Store();
-
-var autoHost = store.get("autoHost") || {
-  enabled: false,
-  mapName: "",
-  ghostHost: false,
-  gameName: "",
+// After I stop changing these values aroung I can just get the whole dict
+//var autoHost = store.get("autoHost")
+var autoHost = {
+  enabled: store.get("autoHost.enabled") || false,
+  mapName: store.get("autoHost.mapName") || "",
+  ghostHost: store.get("autoHost.ghostHost") || false,
+  gameName: store.get("autoHost.gameName") || "",
+  eloLookup: store.get("autoHost.eloLookup") || "off",
 };
 console.log(autoHost);
 // Expose protected methods that allow the renderer process to use
@@ -34,10 +36,29 @@ window.addEventListener("DOMContentLoaded", () => {
   const autoHostMapName = document.getElementById("autoHostMapName");
   const autoHostGameName = document.getElementById("autoHostGameName");
 
+  autoHostCheck.checked = autoHost.enabled;
+  ghostHostCheck.checked = autoHost.ghostHost;
+
+  autoHostMapName.value = autoHost.mapName;
+  autoHostGameName.value = autoHost.gameName;
+  if (autoHost.eloLookup) {
+    console.log(autoHost.eloLookup);
+    document.querySelector(
+      `input[value="${autoHost.eloLookup}"]`
+    ).checked = true;
+  }
+
+  document
+    .querySelectorAll("input[type='checkbox'], input[type='radio']")
+    .forEach((input) => {
+      input.addEventListener("change", updateAutoHost);
+    });
+
+  updateDisabledState(autoHost.enabled);
+
   function updateAutoHost(event) {
-    autoHostMapName.disabled = autoHostCheck.checked;
-    autoHostGameName.disabled = autoHostCheck.checked;
-    ghostHostCheck.disabled = !autoHostCheck.checked;
+    updateDisabledState(autoHostCheck.checked);
+
     ipcRenderer.send("toMain", {
       messageType: "autoHost",
       data: {
@@ -45,22 +66,11 @@ window.addEventListener("DOMContentLoaded", () => {
         ghostHost: ghostHostCheck.checked,
         mapName: autoHostMapName.value,
         gameName: autoHostGameName.value,
+        eloLookup: document.querySelector("input[type='radio']:checked").value,
       },
     });
   }
-  autoHostCheck.checked = autoHost.enabled;
-  ghostHostCheck.checked = autoHost.ghostHost;
 
-  ghostHostCheck.disabled = !autoHost.enabled;
-
-  autoHostMapName.disabled = autoHost.enabled;
-  autoHostMapName.value = autoHost.mapName;
-
-  autoHostGameName.disabled = autoHost.enabled;
-  autoHostGameName.value = autoHost.gameName;
-
-  autoHostCheck.addEventListener("change", updateAutoHost);
-  ghostHostCheck.addEventListener("change", updateAutoHost);
   /*
   const replaceText = (selector, text) => {
     const element = document.getElementById(selector);
@@ -72,3 +82,12 @@ window.addEventListener("DOMContentLoaded", () => {
     console.log(`${dependency}-version`, process.versions[dependency]);
   }
 });
+function updateDisabledState(autoHostEnabled) {
+  document.querySelectorAll("input.auto-host-enabled").forEach((element) => {
+    element.disabled = !autoHostEnabled;
+  });
+
+  document.querySelectorAll("input.auto-host-disabled").forEach((element) => {
+    element.disabled = autoHostEnabled;
+  });
+}

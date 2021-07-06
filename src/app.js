@@ -34,7 +34,15 @@ var appIcon;
 var socket = null;
 var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
-var autoHost = store.get("autoHost");
+// After I stop changing these values aroung I can just get the whole dict
+//var autoHost = store.get("autoHost")
+var autoHost = {
+  enabled: store.get("autoHost.enabled") || false,
+  mapName: store.get("autoHost.mapName") || "",
+  ghostHost: store.get("autoHost.ghostHost") || false,
+  gameName: store.get("autoHost.gameName") || "",
+  eloLookup: store.get("autoHost.eloLookup") || "off",
+};
 var menuState = "Out of Menus";
 
 wss.on("connection", function connection(ws) {
@@ -255,7 +263,7 @@ function handleWSMessage(message) {
       );
       robot.keyTap("enter");
     case "info":
-      log.info(message.data);
+      log.info(JSON.stringify(message.data));
       break;
     case "menusChange":
       menuState = message.data;
@@ -263,9 +271,11 @@ function handleWSMessage(message) {
       log.info(message);
       break;
     case "lobbydata":
-      log.info(message.data);
+      log.info(JSON.stringify(message.data));
+      if (autoHost.eloLookup !== "off") {
+        socket.send(JSON.stringify({ messageType: "sendChat" }));
+      }
       sendProgress("Grabbed Lobby", 10);
-      socket.send(JSON.stringify({ messageType: "sendChat" }));
       processLobby(message.data);
       break;
     case "error":
@@ -296,16 +306,14 @@ function processLobby(list) {
   } else {
     mapName = list.mapName.trim().replace(/\s/g, "%20");
   }
-  let realUserCount = 0;
   Object.keys(list.teamList.playerTeams).forEach(function (key) {
-    list.teamList.playerTeams[key].forEach(function (user) {
-      if (!("team1" in list)) {
-        list.team1 = key;
-      } else if (!("team2" in list) && key !== list.team1) {
-        list.team2 = key;
-      }
-      if (!testNonUserRegex.test(user.trim())) {
-        realUserCount++;
+    if (!("team1" in list)) {
+      list.team1 = key;
+    } else if (!("team2" in list) && key !== list.team1) {
+      list.team2 = key;
+    }
+    list.teamList.playerTeams[key].players.forEach(function (user) {
+      if (autoHost.eloLookup !== "off") {
         https
           .get(
             `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
@@ -313,12 +321,10 @@ function processLobby(list) {
               .replace(/\s/g, "%20")}`,
             (resp) => {
               let datachunks = "";
-
               // A chunk of data has been received.
               resp.on("data", (chunk) => {
                 datachunks += chunk;
               });
-
               // The whole response has been received. Print out the result.
               resp.on("end", () => {
                 const jsonData = JSON.parse(datachunks);
@@ -329,64 +335,15 @@ function processLobby(list) {
                 list.eloList[user] = elo;
                 sendProgress(
                   "Got ELO for " + user,
-                  Object.keys(list.eloList).length / realUserCount - 10
+                  Object.keys(list.eloList).length / list.playerCount - 10
                 );
                 robot.typeStringDelayed(
                   user + " ELO: " + elo.toString(),
                   10000
                 );
                 robot.keyTap("enter");
-                if (Object.keys(list.eloList).length === realUserCount) {
-                  list.totalElo = Object.values(list.eloList).reduce(
-                    (a, b) => a + b,
-                    0
-                  );
-                  let smallestEloDiff = Number.POSITIVE_INFINITY;
-                  let bestCombo = [];
-                  const combos = new Combination(
-                    Object.keys(list.eloList),
-                    Math.floor(Object.keys(list.eloList).length / 2)
-                  );
-                  for (const combo of combos) {
-                    const comboElo = combo.reduce(
-                      (a, b) => a + parseInt(list.eloList[b]),
-                      0
-                    );
-                    const eloDiff = Math.abs(list.totalElo / 2 - comboElo);
-                    if (eloDiff < smallestEloDiff) {
-                      smallestEloDiff = eloDiff;
-                      bestCombo = combo;
-                    }
-                  }
-                  list.bestCombo = bestCombo;
-                  list.eloDiff = smallestEloDiff;
-                  swapHelper(list);
-
-                  win.webContents.send("fromMain", {
-                    messageType: "lobbyElo",
-                    eloList: list,
-                  });
-                  log.info(list);
-                  if (!list.isHost) {
-                    robot.typeStringDelayed(
-                      list.leastSwap + " should be: " + bestCombo.join(", "),
-                      10000
-                    );
-                    robot.keyTap("enter");
-                  } else {
-                    for (let i = 0; i < list.swaps[0].length; i++) {
-                      robot.typeStringDelayed(
-                        "!swap " + list.swaps[0][i] + " " + list.swaps[1][i],
-                        10000
-                      );
-                      robot.keyTap("enter");
-                      robot.keyTap("enter");
-                    }
-                    if (autoHost.enabled && autoHost.ghostHost) {
-                      socket.send(JSON.stringify({ messageType: "start" }));
-                      setTimeout(quitEndGame, 60000);
-                    }
-                  }
+                if (Object.keys(list.eloList).length === list.playerCount) {
+                  finalizeLobby();
                 }
               });
             }
@@ -397,6 +354,64 @@ function processLobby(list) {
       }
     });
   });
+  if (autoHost.eloLookup !== "off") {
+    win.webContents.send("fromMain", {
+      messageType: "lobbyElo",
+      eloList: list,
+    });
+    log.info(list);
+    if (list.isHost && autoHost.enabled && autoHost.ghostHost) {
+      socket.send(JSON.stringify({ messageType: "start" }));
+      setTimeout(quitEndGame, 60000);
+    }
+  }
+}
+
+function finalizeLobby() {
+  list.totalElo = Object.values(list.eloList).reduce((a, b) => a + b, 0);
+  let smallestEloDiff = Number.POSITIVE_INFINITY;
+  let bestCombo = [];
+  const combos = new Combination(
+    Object.keys(list.eloList),
+    Math.floor(Object.keys(list.eloList).length / 2)
+  );
+  for (const combo of combos) {
+    const comboElo = combo.reduce((a, b) => a + parseInt(list.eloList[b]), 0);
+    const eloDiff = Math.abs(list.totalElo / 2 - comboElo);
+    if (eloDiff < smallestEloDiff) {
+      smallestEloDiff = eloDiff;
+      bestCombo = combo;
+    }
+  }
+  list.bestCombo = bestCombo;
+  list.eloDiff = smallestEloDiff;
+  swapHelper(list);
+
+  win.webContents.send("fromMain", {
+    messageType: "lobbyElo",
+    eloList: list,
+  });
+  log.info(list);
+  if (!list.isHost) {
+    robot.typeStringDelayed(
+      list.leastSwap + " should be: " + bestCombo.join(", "),
+      10000
+    );
+    robot.keyTap("enter");
+  } else {
+    for (let i = 0; i < list.swaps[0].length; i++) {
+      robot.typeStringDelayed(
+        "!swap " + list.swaps[0][i] + " " + list.swaps[1][i],
+        10000
+      );
+      robot.keyTap("enter");
+      robot.keyTap("enter");
+    }
+    if (autoHost.enabled && autoHost.ghostHost) {
+      socket.send(JSON.stringify({ messageType: "start" }));
+      setTimeout(quitEndGame, 60000);
+    }
+  }
 }
 
 function quitEndGame() {
@@ -412,11 +427,11 @@ function swapHelper(list) {
   excludeHostFromSwap = true;
   const bestComboInTeam1 = intersect(
     list.bestCombo,
-    list.teamList.playerTeams[list.team1]
+    list.teamList.playerTeams[list.team1].players
   );
   const bestComboInTeam2 = intersect(
     list.bestCombo,
-    list.teamList.playerTeams[list.team2]
+    list.teamList.playerTeams[list.team2].players
   );
   log.info(bestComboInTeam1, bestComboInTeam2);
   // If not excludeHostFromSwap and team1 has more best combo people, or excludeHostFromSwap and the best combo includes the host keep all best combo players in team 1.
@@ -428,7 +443,7 @@ function swapHelper(list) {
     list.leastSwap = list.team1;
     // Go through team 1 and grab everyone who is not in the best combo
 
-    list.teamList.playerTeams[list.team1].forEach((user) => {
+    list.teamList.playerTeams[list.team1].players.forEach((user) => {
       if (!list.bestCombo.includes(user)) {
         swapsFromTeam1.push(user);
       }
@@ -440,10 +455,7 @@ function swapHelper(list) {
     });
   } else {
     list.leastSwap = list.team2;
-    // TODO fix crash
-    log.info(list.teamList.playerTeams);
-    log.info(list.teamList.playerTeams);
-    list.teamList.playerTeams[list.team2].forEach((user) => {
+    list.teamList.playerTeams[list.team2].players.forEach((user) => {
       if (!list.bestCombo.includes(user)) {
         swapsFromTeam2.push(user);
       }

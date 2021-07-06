@@ -15,12 +15,25 @@
     </span>
   </div>
   <div class="form-group p-2">
-  <input type="checkbox" class="btn-check" id="autoHostCheck" autocomplete="off">
-  <label class="btn btn-outline-success" for="autoHostCheck">Auto Host Lobby</label>
-  <input type="checkbox" class="btn-check" id="ghostHostCheck" autocomplete="off">
-  <label class="btn btn-outline-secondary" for="ghostHostCheck">Full Auto Host</label>
-  <input type="text" class="form-control" id="autoHostMapName" placeholder="Map name (exact match, no extension, no color)" minlength="3">
-  <input type="text" class="form-control" id="autoHostGameName" placeholder="Game Name" maxlength="27" minlength="3">
+    <form name="autoHostForm">
+      <input type="checkbox" class="btn-check" id="autoHostCheck" autocomplete="off">
+      <label class="btn btn-outline-success" for="autoHostCheck">Auto Host Lobby</label>
+
+      <input type="checkbox" class="btn-check auto-host-enabled" id="ghostHostCheck" autocomplete="off">
+      <label class="btn btn-outline-secondary" for="ghostHostCheck">Full Auto Host</label>
+
+      <input type="radio" class="btn-check auto-host-enabled" name="eloSystem" id="eloOffRadio" value="off" autocomplete="off" checked>
+      <label class="btn btn-outline-success" for="eloOffRadio">No Elo Lookup</label>
+
+      <input type="radio" class="btn-check auto-host-enabled" name="eloSystem" id="wc3statsELORadio" value="wc3stats" autocomplete="off">
+      <label class="btn btn-outline-success" for="wc3statsELORadio">wc3stats.com ELO</label>
+
+      <input type="radio" class="btn-check" name="eloSystem" id="localELORadio" value="local" autocomplete="off" disabled>
+      <label class="btn btn-outline-danger" for="localELORadio">Local ELO (WIP)</label>
+
+      <input type="text" class="form-control auto-host-disabled" id="autoHostMapName" placeholder="Map name (exact match, no extension, no color)" minlength="3">
+      <input type="text" class="form-control auto-host-disabled" id="autoHostGameName" placeholder="Game Name" maxlength="27" minlength="3">
+    </form>
   </div>
   <h3>Menu State: <span id="menuStateLabel">Out of Menus</span></h3>
   <h3>Current Step: <span id="progressbarLabel"></span></h3>
