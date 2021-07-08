@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, app } = require("electron");
 const Store = require("electron-store");
 const store = new Store();
 // After I stop changing these values aroung I can just get the whole dict
@@ -9,8 +9,8 @@ var autoHost = {
   ghostHost: store.get("autoHost.ghostHost") || false,
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
+  mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
-console.log(autoHost);
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld("api", {
@@ -35,18 +35,16 @@ window.addEventListener("DOMContentLoaded", () => {
   const ghostHostCheck = document.getElementById("ghostHostCheck");
   const autoHostMapName = document.getElementById("autoHostMapName");
   const autoHostGameName = document.getElementById("autoHostGameName");
+  const mapDirectorySpan = document.getElementById("mapDirectorySpan");
 
   autoHostCheck.checked = autoHost.enabled;
   ghostHostCheck.checked = autoHost.ghostHost;
 
   autoHostMapName.value = autoHost.mapName;
   autoHostGameName.value = autoHost.gameName;
-  if (autoHost.eloLookup) {
-    console.log(autoHost.eloLookup);
-    document.querySelector(
-      `input[value="${autoHost.eloLookup}"]`
-    ).checked = true;
-  }
+  mapDirectorySpan.innerText = "\\" + autoHost.mapDirectory.join("\\");
+
+  document.querySelector(`input[value="${autoHost.eloLookup}"]`).checked = true;
 
   document
     .querySelectorAll("input[type='checkbox'], input[type='radio']")
@@ -67,10 +65,16 @@ window.addEventListener("DOMContentLoaded", () => {
         mapName: autoHostMapName.value,
         gameName: autoHostGameName.value,
         eloLookup: document.querySelector("input[type='radio']:checked").value,
+        mapDirectory: store.get("autoHost.mapDirectory"),
       },
     });
   }
 
+  document
+    .getElementById("autoHostMapDirectory")
+    .addEventListener("click", function () {
+      ipcRenderer.send("toMain", { messageType: "getMapDirectory" });
+    });
   /*
   const replaceText = (selector, text) => {
     const element = document.getElementById(selector);

@@ -29,6 +29,11 @@ window.api.receive("fromMain", (data) => {
       document.getElementById("menuStateLabel").innerText = data.data;
       break;
     case "error":
+      alert(data.data);
+      break;
+    case "gotMapDirectory":
+      document.getElementById("mapDirectorySpan").innerText =
+        "\\" + data.data.join("\\");
       break;
     default:
       console.log(data);

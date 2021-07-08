@@ -1,7 +1,13 @@
-let webSocket, menusObserver, lobbyObserver, lobby;
+let webSocket, menusObserver, lobbyObserver;
+let lobby = {};
 let menuState = "Out of Menus";
 let joiningLobby = false;
-let autoHost = { enabled: false, mapName: "", ghostHost: false };
+let autoHost = {
+  enabled: false,
+  mapName: "",
+  ghostHost: false,
+  mapDirectory: "\\Download",
+};
 const testNonPlayersTeam = /((computer)|(creep))/i;
 const testSpecTeam = /((host)|(spectator)|(observer))/i;
 const testSlotAvailable = /Slot \d+ (Open Slot|Closed)/i;
@@ -113,11 +119,7 @@ function mutationsSetup() {
       }
 
       if (menuState === "In Lobby") {
-        try {
-          lobby = getLobbyData();
-        } catch (e) {
-          sendSocket("error", ["Lobby error", e.message]);
-        }
+        getLobbyHelper();
         if (autoHost.enabled) {
           if (autoHost.ghostHost) {
             moveInLobby();
@@ -133,16 +135,15 @@ function mutationsSetup() {
                 });
               });
           } catch (e) {
-            sendSocket("error", ["In Lobby", e.message]);
+            sendSocket("error", e.message + "\n" + e.stack);
           }
         }
       } else {
-        sendSocket("info", ["else!!", inLobby]);
         if (lobbyObserver) {
           try {
             lobbyObserver.disconnect();
           } catch (e) {
-            sendSocket("error", ["Lobby Observer Disconnect", e.message]);
+            sendSocket("error", e.message + "\n" + e.stack);
           }
         }
       }
@@ -171,14 +172,10 @@ function clickCustomGames() {
 }
 
 function handleLobby() {
-  lobby = getLobbyData();
-  if (lobby) {
-    Object.keys(lobby.teamList.playerTeams).forEach(function (playerTeamName) {
-      if (list.teamList.playerTeams[playerTeamName].openSlots > 0) {
-        return;
-      }
-    });
+  if (getLobbyData()) {
     sendSocket("lobbydata", lobby);
+  } else {
+    sendSocket("error", e.message + "\n" + e.stack);
   }
 }
 
@@ -250,12 +247,12 @@ function clickCreate() {
 function createLobby() {
   if (menuState === "Creating Game") {
     try {
-      const isInMapDownloads =
+      /*const isInMapDownloads =
         document.getElementById("MapItem-0") &&
         document
           .getElementById("MapItem-0")
           .innerText.toLowerCase()
-          .replace(/(\r\n|\n|\r)/gm, "") === "download";
+          .replace(/(\r\n|\n|\r)/gm, "") === "download";*/
 
       const isIncorrectMap =
         document.querySelector("div.CreateGameMenu-MapDetails-MapName") &&
@@ -274,7 +271,7 @@ function createLobby() {
         document.querySelector("div.CreateGameMenu-GameName input").value
       );
 
-      if (isInMapDownloads) {
+      /*if (isInMapDownloads) {
         document.getElementById("MapItem-0").click();
         setTimeout(() => {
           const button = document.querySelector(
@@ -282,19 +279,32 @@ function createLobby() {
           );
           if (button) button.click();
         }, 100);
-      }
+      }*/
       // If the current map selected is not equal to the autoHost.mapName, find it and click it
-      else if (isIncorrectMap) {
+      if (isIncorrectMap) {
         document
           .querySelectorAll(
             ".CreateGameMenu-MapList div.CreateGameMenu-MapItem-Label"
           )
           .forEach(function (button) {
-            if (
-              button.innerText.toLowerCase().replace(/(\r\n|\n|\r)/gm, "") ===
-              autoHost.mapName.toLowerCase()
+            const buttonText = button.innerText
+              .replace(/(\r\n|\n|\r)/gm, "")
+              .toLowerCase();
+            if (buttonText === autoHost.mapName.toLowerCase()) {
+              button.click();
+            } else if (
+              autoHost.mapDirectory.some((item) => {
+                var re = new RegExp(`^${item}$`, "i");
+                return buttonText.match(re);
+              })
             ) {
               button.click();
+              setTimeout(() => {
+                const openFolderButton = document.querySelector(
+                  "div.CreateGameMenu-DirectoryDetails div.Primary-Button-Frame-Alternate-B > div > div"
+                );
+                if (openFolderButton) openFolderButton.click();
+              }, 100);
             }
           });
       }
@@ -323,30 +333,54 @@ function createLobby() {
   }
 }
 
-function getLobbyData() {
+function getLobbyHelper() {
+  if (menuState === "In Lobby") {
+    if (!getMapData()) {
+      sendSocket("error", e.message + "\n" + e.stack);
+      setTimeout(getLobbyHelper, 1000);
+      return;
+    }
+    if (!getLobbyData()) {
+      sendSocket("error", e.message + "\n" + e.stack);
+      setTimeout(getLobbyHelper, 1000);
+    }
+  }
+}
+
+function getMapData() {
   try {
-    const mapName = document.querySelector(
+    lobby.mapName = document.querySelector(
       "div.GameLobby-MapDetails-MapName"
     ).innerText;
-    const mapAuthor = document.querySelector(
+    lobby.mapAuthor = document.querySelector(
       "div.GameLobby-MapAuthor"
     ).innerText;
-    const mapPlayerSize = document.querySelector(
+    lobby.mapPlayerSize = document.querySelector(
       "div.GameLobby-MaxPlayerSize"
     ).innerText;
-    const gameName = document.querySelector(
+    lobby.gameName = document.querySelector(
       "div.GameSummary-GameName.GameLobby-DetailAttributeValue"
     ).innerText;
-    const gameHost = document.querySelector(
+    lobby.gameHost = document.querySelector(
       "div.GameSummary-Host.GameLobby-DetailAttributeValue"
     ).innerText;
-    const mapPlayers = document.querySelector(
+    lobby.mapPlayers = document.querySelector(
       "div.GameSummary-Players.GameLobby-DetailAttributeValue"
     ).innerText;
-    const isHost =
+    lobby.isHost =
       document.querySelector("div.Primary-Button.Primary-Button-Green") != null;
+    return true;
+  } catch (e) {
+    sendSocket("error", e.message + "\n" + e.stack);
+    return false;
+  }
+}
+
+function getLobbyData() {
+  try {
     let teamList = { playerTeams: {}, otherTeams: {}, specTeams: {} };
     let playerCount = 0;
+    let openPlayerSlots = 0;
     let countPlayers = false;
 
     document
@@ -391,6 +425,9 @@ function getLobbyData() {
               );
               if (testSlotOpen.test(slotTitle)) {
                 teamPointer.openSlots++;
+                if (countPlayers) {
+                  openPlayerSlots++;
+                }
               } else {
                 teamPointer.closedSlots++;
               }
@@ -403,17 +440,10 @@ function getLobbyData() {
             }
           });
       });
-    return {
-      mapName: mapName,
-      mapAuthor: mapAuthor,
-      mapPlayerSize: mapPlayerSize,
-      gameName: gameName,
-      gameHost: gameHost,
-      isHost: isHost,
-      mapPlayers: mapPlayers,
-      playerCount: playerCount,
-      teamList: teamList,
-    };
+    lobby.openPlayerSlots = openPlayerSlots;
+    lobby.playerCount = playerCount;
+    lobby.teamList = teamList;
+    return true;
   } catch (e) {
     sendSocket("error", e.message + "\n" + e.stack);
     return false;

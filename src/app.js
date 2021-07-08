@@ -7,6 +7,7 @@ const {
   ipcMain,
   ipcRenderer,
   globalShortcut,
+  dialog,
   Notification,
 } = require("electron");
 require = require("esm")(module);
@@ -18,6 +19,7 @@ const https = require("https");
 const WebSocket = require("ws");
 const path = require("path");
 const Store = require("electron-store");
+const { info } = require("electron-log");
 const wss = new WebSocket.Server({ port: 8888 });
 
 const testNonUserRegex = new RegExp(
@@ -42,9 +44,10 @@ var autoHost = {
   ghostHost: store.get("autoHost.ghostHost") || false,
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
+  mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
 var menuState = "Out of Menus";
-
+log.info(autoHost.mapDirectory);
 wss.on("connection", function connection(ws) {
   log.info("Connection");
   socket = ws;
@@ -61,6 +64,29 @@ wss.on("connection", function connection(ws) {
 
 ipcMain.on("toMain", (event, args) => {
   switch (args.messageType) {
+    case "getMapDirectory":
+      dialog
+        .showOpenDialog(win, {
+          title: "Choose Map Directory",
+          defaultPath: `${app.getPath("home")}\\Documents\\Warcraft III\\Maps`,
+          properties: ["openDirectory"],
+        })
+        .then((result) => {
+          if (!result.canceled) {
+            let mapDir = result.filePaths[0].split(/maps/i);
+            mapDir = mapDir[mapDir.length - 1].split("\\").filter(Boolean);
+            log.info(`Change map directory to ${mapDir.join("\\")}`);
+            autoHost.mapDirectory = mapDir;
+            store.set("autoHost.mapDirectory", mapDir);
+            sendWindow({
+              messageType: "gotMapDirectory",
+              data: autoHost.mapDirectory,
+            });
+          }
+        })
+        .catch((err) => {
+          log.info(err);
+        });
     case "getLobby":
     case "getPage":
     case "start":
@@ -271,7 +297,7 @@ function handleWSMessage(message) {
       log.info(message);
       break;
     case "lobbydata":
-      log.info(JSON.stringify(message.data));
+      log.verbose(JSON.stringify(message.data));
       if (autoHost.eloLookup !== "off") {
         socket.send(JSON.stringify({ messageType: "sendChat" }));
       }
