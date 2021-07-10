@@ -31,11 +31,14 @@ autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 log.info("App starting...");
 
+const excludeHostFromSwap = true;
+
 var win;
 var appIcon;
 var socket = null;
 var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
+var lobby = {};
 // After I stop changing these values aroung I can just get the whole dict
 //var autoHost = store.get("autoHost")
 var autoHost = {
@@ -296,13 +299,19 @@ function handleWSMessage(message) {
       sendWindow(message);
       log.info(message);
       break;
-    case "lobbydata":
+    case "lobbyData":
+      log.verbose(JSON.stringify(message.data));
+      lobby = message.data;
+      sendProgress("Grabbed Lobby", 10);
+      processLobbyELO(lobby);
+      break;
+    case "lobbyUpdate":
       log.verbose(JSON.stringify(message.data));
       if (autoHost.eloLookup !== "off") {
         socket.send(JSON.stringify({ messageType: "sendChat" }));
       }
       sendProgress("Grabbed Lobby", 10);
-      processLobby(message.data);
+      processLobbyELO(message.data);
       break;
     case "error":
       log.error(message);
@@ -322,112 +331,156 @@ function handleWSMessage(message) {
   }
 }
 
-function processLobby(list) {
-  const excludeHostFromSwap = true;
-  list.eloList = {};
-  let mapName = list.mapName;
-  // TODO get api to find variant modes
-  if (mapName.includes("HLW")) {
-    mapName = "HLW";
-  } else {
-    mapName = list.mapName.trim().replace(/\s/g, "%20");
-  }
-  Object.keys(list.teamList.playerTeams).forEach(function (key) {
-    if (!("team1" in list)) {
-      list.team1 = key;
-    } else if (!("team2" in list) && key !== list.team1) {
-      list.team2 = key;
+function processMapData(lobbyData) {
+  let mapName = lobbyData.mapData.eloMapName;
+  if (!mapName) {
+    if (lobbyData.mapData.mapName.match(/(HLW)/i)) {
+      mapName = "HLW";
+    } else {
+      lobbyData.mapData.eloMapName = mapName
+        .trim()
+        .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
+        .replace(/\s/g, "%20");
     }
-    list.teamList.playerTeams[key].players.forEach(function (user) {
-      if (autoHost.eloLookup !== "off") {
-        https
-          .get(
-            `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
-              .trim()
-              .replace(/\s/g, "%20")}`,
-            (resp) => {
-              let datachunks = "";
-              // A chunk of data has been received.
-              resp.on("data", (chunk) => {
-                datachunks += chunk;
-              });
-              // The whole response has been received. Print out the result.
-              resp.on("end", () => {
-                const jsonData = JSON.parse(datachunks);
-                let elo = 500;
-                if (jsonData.body.length > 0) {
-                  elo = jsonData.body[0].rating;
-                }
-                list.eloList[user] = elo;
-                sendProgress(
-                  "Got ELO for " + user,
-                  Object.keys(list.eloList).length / list.playerCount - 10
-                );
-                robot.typeStringDelayed(
-                  user + " ELO: " + elo.toString(),
-                  10000
-                );
-                robot.keyTap("enter");
-                if (Object.keys(list.eloList).length === list.playerCount) {
-                  finalizeLobby();
-                }
-              });
-            }
-          )
-          .on("error", (err) => {
-            log.error("Error: " + err.message);
+  }
+  if (autoHost.eloLookup === "wc3stats") {
+    https
+      .get(
+        `https://api.wc3stats.com/maps/${lobbyData.mapData.eloMapName}`,
+        (resp) => {
+          let datachunks = "";
+          // A chunk of data has been received.
+          resp.on("data", (chunk) => {
+            datachunks += chunk;
           });
-      }
+          // The whole response has been received. Print out the result.
+          resp.on("end", () => {
+            const jsonData = JSON.parse(datachunks);
+            lobbyData.eloAvailable = jsonData.status === "OK";
+            lobbyData.eloList = {};
+            processLobbyELO(lobbyData);
+            // TODO check variants, seasons, modes, and ladders
+            /*if (lobbyData.eloAvailable) {
+            jsonData.body.variants.forEach((variant) => {
+              variant.stats.forEach((stats) => {});
+            });
+          }*/
+          });
+        }
+      )
+      .on("error", (err) => {
+        log.error("Error: " + err.message);
+      });
+  }
+}
+
+function processLobbyELO(lobbyData) {
+  const mapName = lobbyData.mapData.eloMapName;
+  if (lobbyData.eloAvailable) {
+    Object.keys(lobbyData.lobbyData.teamList.playerTeams).forEach(function (
+      key
+    ) {
+      lobbyData.teamList.playerTeams[key].players.forEach(function (user) {
+        if (!Object.keys(lobbyData.eloList).includes(user)) {
+          lobbyData.eloList[user] = 0;
+          if (autoHost.eloLookup === "wc3stats") {
+            https
+              .get(
+                `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
+                  .trim()
+                  .replace(/\s/g, "%20")}`,
+                (resp) => {
+                  let datachunks = "";
+                  resp.on("data", (chunk) => {
+                    datachunks += chunk;
+                  });
+                  // The whole response has been received. Print out the result.
+                  resp.on("end", () => {
+                    const jsonData = JSON.parse(datachunks);
+                    let elo = 500;
+                    if (jsonData.body.length > 0) {
+                      elo = jsonData.body[0].rating;
+                    }
+                    lobbyData.eloList[user] = elo;
+                    sendProgress(
+                      "Got ELO for " + user,
+                      Object.keys(lobbyData.eloList).length /
+                        lobbyData.mapData.playerCount -
+                        10
+                    );
+                    robot.typeStringDelayed(
+                      user + " ELO: " + elo.toString(),
+                      10000
+                    );
+                    robot.keyTap("enter");
+                    if (lobbyData.lobbyData.openPlayerSlots === 0) {
+                      finalizeLobby(lobbyData);
+                    }
+                  });
+                }
+              )
+              .on("error", (err) => {
+                log.error("Error: " + err.message);
+              });
+          }
+        }
+      });
     });
-  });
+  }
   if (autoHost.eloLookup !== "off") {
     win.webContents.send("fromMain", {
       messageType: "lobbyElo",
-      eloList: list,
+      eloList: lobbyData,
     });
-    log.info(list);
-    if (list.isHost && autoHost.enabled && autoHost.ghostHost) {
+    log.info(lobbyData);
+    if (lobbyData.mapData.isHost && autoHost.enabled && autoHost.ghostHost) {
       socket.send(JSON.stringify({ messageType: "start" }));
       setTimeout(quitEndGame, 60000);
     }
   }
 }
 
-function finalizeLobby() {
-  list.totalElo = Object.values(list.eloList).reduce((a, b) => a + b, 0);
+function finalizeLobby(lobbyData) {
+  lobbyData.totalElo = Object.values(lobbyData.eloList).reduce(
+    (a, b) => a + b,
+    0
+  );
   let smallestEloDiff = Number.POSITIVE_INFINITY;
   let bestCombo = [];
   const combos = new Combination(
-    Object.keys(list.eloList),
-    Math.floor(Object.keys(list.eloList).length / 2)
+    Object.keys(lobbyData.eloList),
+    Math.floor(Object.keys(lobbyData.eloList).length / 2)
   );
   for (const combo of combos) {
-    const comboElo = combo.reduce((a, b) => a + parseInt(list.eloList[b]), 0);
-    const eloDiff = Math.abs(list.totalElo / 2 - comboElo);
+    const comboElo = combo.reduce(
+      (a, b) => a + parseInt(lobbyData.eloList[b]),
+      0
+    );
+    const eloDiff = Math.abs(lobbyData.totalElo / 2 - comboElo);
     if (eloDiff < smallestEloDiff) {
       smallestEloDiff = eloDiff;
       bestCombo = combo;
     }
   }
-  list.bestCombo = bestCombo;
-  list.eloDiff = smallestEloDiff;
-  swapHelper(list);
+  lobbyData.bestCombo = bestCombo;
+  lobbyData.eloDiff = smallestEloDiff;
+  swapHelper(lobbyData);
 
   win.webContents.send("fromMain", {
     messageType: "lobbyElo",
-    eloList: list,
+    eloList: lobbyData.lobbyData,
   });
-  log.info(list);
-  if (!list.isHost) {
+  log.info(lobbyData);
+  if (!lobbyData.mapData.isHost) {
     robot.typeStringDelayed(
-      list.leastSwap + " should be: " + bestCombo.join(", "),
+      lobbyData.leastSwap + " should be: " + bestCombo.join(", "),
       10000
     );
     robot.keyTap("enter");
   } else {
-    for (let i = 0; i < list.swaps[0].length; i++) {
+    for (let i = 0; i < lobbyData.swaps[0].length; i++) {
       robot.typeStringDelayed(
-        "!swap " + list.swaps[0][i] + " " + list.swaps[1][i],
+        "!swap " + lobbyData.swaps[0][i] + " " + lobbyData.swaps[1][i],
         10000
       );
       robot.keyTap("enter");
@@ -441,36 +494,41 @@ function finalizeLobby() {
 }
 
 function quitEndGame() {
+  // TODO make this not bad
   if (menuState === "Out of Menus") {
     robot.keyTap("q");
     setTimeout(quitEndGame, 15000);
   }
 }
 
-function swapHelper(list) {
+function swapHelper(lobbyData) {
   let swapsFromTeam1 = [];
   let swapsFromTeam2 = [];
+  const team1 = Object.keys(lobbyData.lobbyData.teamList.playerTeams)[0];
+  const team2 = Object.keys(lobbyData.lobbyData.teamList.playerTeams)[1];
   excludeHostFromSwap = true;
   const bestComboInTeam1 = intersect(
-    list.bestCombo,
-    list.teamList.playerTeams[list.team1].players
+    lobbyData.bestCombo,
+
+    lobbyData.lobbyData.teamList.playerTeams[team1].players
   );
   const bestComboInTeam2 = intersect(
-    list.bestCombo,
-    list.teamList.playerTeams[list.team2].players
+    lobbyData.bestCombo,
+    lobbyData.lobbyData.teamList.playerTeams[team2].players
   );
   log.info(bestComboInTeam1, bestComboInTeam2);
   // If not excludeHostFromSwap and team1 has more best combo people, or excludeHostFromSwap and the best combo includes the host keep all best combo players in team 1.
   if (
     (!excludeHostFromSwap &&
       bestComboInTeam1.length >= bestComboInTeam2.length) ||
-    (excludeHostFromSwap && list.bestCombo.includes(list.gameHost))
+    (excludeHostFromSwap &&
+      lobbyData.bestCombo.includes(lobbyData.mapData.gameHost))
   ) {
-    list.leastSwap = list.team1;
+    lobbyData.leastSwap = team1;
     // Go through team 1 and grab everyone who is not in the best combo
 
-    list.teamList.playerTeams[list.team1].players.forEach((user) => {
-      if (!list.bestCombo.includes(user)) {
+    lobbyData.lobbyData.teamList.playerTeams[team1].players.forEach((user) => {
+      if (!lobbyData.bestCombo.includes(user)) {
         swapsFromTeam1.push(user);
       }
     });
@@ -480,9 +538,9 @@ function swapHelper(list) {
       swapsFromTeam2.push(user);
     });
   } else {
-    list.leastSwap = list.team2;
-    list.teamList.playerTeams[list.team2].players.forEach((user) => {
-      if (!list.bestCombo.includes(user)) {
+    lobbyData.leastSwap = team2;
+    lobbyData.lobbyData.teamList.playerTeams[team2].players.forEach((user) => {
+      if (!lobbyData.bestCombo.includes(user)) {
         swapsFromTeam2.push(user);
       }
     });
@@ -490,7 +548,7 @@ function swapHelper(list) {
       swapsFromTeam1.push(user);
     });
   }
-  list.swaps = [swapsFromTeam1, swapsFromTeam2];
+  lobbyData.swaps = [swapsFromTeam1, swapsFromTeam2];
 }
 
 function intersect(a, b) {

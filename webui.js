@@ -172,8 +172,9 @@ function clickCustomGames() {
 }
 
 function handleLobby() {
-  if (getLobbyData()) {
-    sendSocket("lobbydata", lobby);
+  lobby.lobbyData = getLobbyData();
+  if (lobby.lobbyData) {
+    sendSocket("lobbyUpdate", lobby.lobbyData);
   } else {
     sendSocket("error", e.message + "\n" + e.stack);
   }
@@ -335,41 +336,43 @@ function createLobby() {
 
 function getLobbyHelper() {
   if (menuState === "In Lobby") {
-    if (!getMapData()) {
+    lobby.mapData = getLobbyData();
+    if (!lobby.mapData) {
       sendSocket("error", e.message + "\n" + e.stack);
       setTimeout(getLobbyHelper, 1000);
       return;
     }
-    if (!getLobbyData()) {
+    lobby.lobbyData = getLobbyData();
+    if (!lobby.lobbyData) {
       sendSocket("error", e.message + "\n" + e.stack);
       setTimeout(getLobbyHelper, 1000);
+      return;
     }
+    sendSocket("lobbyData", lobby);
   }
 }
 
 function getMapData() {
   try {
-    lobby.mapName = document.querySelector(
-      "div.GameLobby-MapDetails-MapName"
-    ).innerText;
-    lobby.mapAuthor = document.querySelector(
-      "div.GameLobby-MapAuthor"
-    ).innerText;
-    lobby.mapPlayerSize = document.querySelector(
-      "div.GameLobby-MaxPlayerSize"
-    ).innerText;
-    lobby.gameName = document.querySelector(
-      "div.GameSummary-GameName.GameLobby-DetailAttributeValue"
-    ).innerText;
-    lobby.gameHost = document.querySelector(
-      "div.GameSummary-Host.GameLobby-DetailAttributeValue"
-    ).innerText;
-    lobby.mapPlayers = document.querySelector(
-      "div.GameSummary-Players.GameLobby-DetailAttributeValue"
-    ).innerText;
-    lobby.isHost =
-      document.querySelector("div.Primary-Button.Primary-Button-Green") != null;
-    return true;
+    return {
+      mapName: document.querySelector("div.GameLobby-MapDetails-MapName")
+        .innerText,
+      mapAuthor: document.querySelector("div.GameLobby-MapAuthor").innerText,
+      mapPlayerSize: document.querySelector("div.GameLobby-MaxPlayerSize")
+        .innerText,
+      gameName: document.querySelector(
+        "div.GameSummary-GameName.GameLobby-DetailAttributeValue"
+      ).innerText,
+      gameHost: document.querySelector(
+        "div.GameSummary-Host.GameLobby-DetailAttributeValue"
+      ).innerText,
+      mapPlayers: document.querySelector(
+        "div.GameSummary-Players.GameLobby-DetailAttributeValue"
+      ).innerText,
+      isHost:
+        document.querySelector("div.Primary-Button.Primary-Button-Green") !=
+        null,
+    };
   } catch (e) {
     sendSocket("error", e.message + "\n" + e.stack);
     return false;
@@ -440,10 +443,11 @@ function getLobbyData() {
             }
           });
       });
-    lobby.openPlayerSlots = openPlayerSlots;
-    lobby.playerCount = playerCount;
-    lobby.teamList = teamList;
-    return true;
+    return {
+      openPlayerSlots: openPlayerSlots,
+      playerCount: playerCount,
+      teamList: teamList,
+    };
   } catch (e) {
     sendSocket("error", e.message + "\n" + e.stack);
     return false;
