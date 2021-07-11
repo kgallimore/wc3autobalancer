@@ -14,17 +14,13 @@ require = require("esm")(module);
 const { Combination } = require("js-combinatorics");
 const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
-var robot = require("robotjs");
+const robot = require("robotjs");
 const https = require("https");
 const WebSocket = require("ws");
 const path = require("path");
 const Store = require("electron-store");
-const { info } = require("electron-log");
 const wss = new WebSocket.Server({ port: 8888 });
 
-const testNonUserRegex = new RegExp(
-  /(Slot \d+ (Open Slot|Closed))|(Computer \(\S+\))/i
-);
 const store = new Store();
 
 autoUpdater.logger = log;
@@ -39,18 +35,16 @@ var socket = null;
 var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
 var lobby = {};
-// After I stop changing these values aroung I can just get the whole dict
+// After I stop changing these values around I can just get the whole dict
 //var autoHost = store.get("autoHost")
 var autoHost = {
-  enabled: store.get("autoHost.enabled") || false,
+  enabled: store.get("autoHost.type") || "off",
   mapName: store.get("autoHost.mapName") || "",
-  ghostHost: store.get("autoHost.ghostHost") || false,
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
 var menuState = "Out of Menus";
-log.info(autoHost.mapDirectory);
 wss.on("connection", function connection(ws) {
   log.info("Connection");
   socket = ws;
@@ -88,7 +82,7 @@ ipcMain.on("toMain", (event, args) => {
           }
         })
         .catch((err) => {
-          log.info(err);
+          log.error(err.message, err.stack);
         });
     case "getLobby":
     case "getPage":
@@ -100,7 +94,7 @@ ipcMain.on("toMain", (event, args) => {
       }
       break;
     case "autoHost":
-      log.info("Autohost", args.data);
+      log.info("autoHost", args.data);
       autoHost = args.data;
       store.set("autoHost", args.data);
       if (socket) {
@@ -178,8 +172,8 @@ autoUpdater.on("update-downloaded", (info) => {
 
 const createWindow = () => {
   win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 600,
+    height: 800,
     show: false,
     icon: path.join(__dirname, "scale.png"),
     webPreferences: {
@@ -189,7 +183,7 @@ const createWindow = () => {
       enableRemoteModule: false,
     },
   });
-  //win.setMenuBarVisibility(false);
+  win.setMenuBarVisibility(false);
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -203,7 +197,7 @@ const createWindow = () => {
     {
       label: "Quit",
       click: function () {
-        app.isQuiting = true;
+        app.isQuitting = true;
         app.quit();
       },
     },
@@ -300,44 +294,38 @@ function handleWSMessage(message) {
       log.info(message);
       break;
     case "lobbyData":
-      log.verbose(JSON.stringify(message.data));
-      lobby = message.data;
+      // Flush any previous lobbies
+      lobby = {};
       sendProgress("Grabbed Lobby", 10);
-      processLobbyELO(lobby);
+      processMapData(message.data);
       break;
     case "lobbyUpdate":
       log.verbose(JSON.stringify(message.data));
-      if (autoHost.eloLookup !== "off") {
-        socket.send(JSON.stringify({ messageType: "sendChat" }));
-      }
-      sendProgress("Grabbed Lobby", 10);
-      processLobbyELO(message.data);
+      processLobby(message.data);
       break;
     case "error":
       log.error(message);
       win.webContents.send("fromMain", message);
       break;
     case "body":
-      log.info(message.data);
+      log.verbose(message.data);
       break;
     case "echo":
-      log.info(message);
+      log.verbose(message);
       break;
-    case "chatReady":
-      robot.typeStringDelayed("Please wait while I lookup your ELOs", 10000);
-      robot.keyTap("enter");
     default:
       log.info(message);
   }
 }
 
 function processMapData(lobbyData) {
-  let mapName = lobbyData.mapData.eloMapName;
-  if (!mapName) {
-    if (lobbyData.mapData.mapName.match(/(HLW)/i)) {
-      mapName = "HLW";
+  lobby.mapData = lobbyData.mapData;
+  const mapName = lobby.mapData.mapName;
+  if (!lobby.eloMapName) {
+    if (lobby.mapData.mapName.match(/(HLW)/i)) {
+      lobby.eloMapName = "HLW";
     } else {
-      lobbyData.mapData.eloMapName = mapName
+      lobby.eloMapName = mapName
         .trim()
         .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
         .replace(/\s/g, "%20");
@@ -345,148 +333,151 @@ function processMapData(lobbyData) {
   }
   if (autoHost.eloLookup === "wc3stats") {
     https
-      .get(
-        `https://api.wc3stats.com/maps/${lobbyData.mapData.eloMapName}`,
-        (resp) => {
-          let datachunks = "";
-          // A chunk of data has been received.
-          resp.on("data", (chunk) => {
-            datachunks += chunk;
-          });
-          // The whole response has been received. Print out the result.
-          resp.on("end", () => {
-            const jsonData = JSON.parse(datachunks);
-            lobbyData.eloAvailable = jsonData.status === "OK";
-            lobbyData.eloList = {};
-            processLobbyELO(lobbyData);
-            // TODO check variants, seasons, modes, and ladders
-            /*if (lobbyData.eloAvailable) {
+      .get(`https://api.wc3stats.com/maps/${lobby.eloMapName}`, (resp) => {
+        let dataChunks = "";
+        // A chunk of data has been received.
+        resp.on("data", (chunk) => {
+          dataChunks += chunk;
+        });
+        // The whole response has been received. Print out the result.
+        resp.on("end", () => {
+          const jsonData = JSON.parse(dataChunks);
+          lobby.eloAvailable = jsonData.status === "OK";
+          lobby.eloList = {};
+          lobby.lookingUpELO = [];
+          sendWindow({ messageType: "lobbyData", data: lobby });
+          processLobby(lobbyData.lobbyData);
+          // TODO check variants, seasons, modes, and ladders
+          /*if (lobbyData.eloAvailable) {
             jsonData.body.variants.forEach((variant) => {
               variant.stats.forEach((stats) => {});
             });
           }*/
-          });
-        }
-      )
+        });
+      })
       .on("error", (err) => {
         log.error("Error: " + err.message);
       });
   }
 }
 
-function processLobbyELO(lobbyData) {
-  const mapName = lobbyData.mapData.eloMapName;
-  if (lobbyData.eloAvailable) {
-    Object.keys(lobbyData.lobbyData.teamList.playerTeams).forEach(function (
-      key
-    ) {
-      lobbyData.teamList.playerTeams[key].players.forEach(function (user) {
-        if (!Object.keys(lobbyData.eloList).includes(user)) {
-          lobbyData.eloList[user] = 0;
-          if (autoHost.eloLookup === "wc3stats") {
-            https
-              .get(
-                `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
-                  .trim()
-                  .replace(/\s/g, "%20")}`,
-                (resp) => {
-                  let datachunks = "";
-                  resp.on("data", (chunk) => {
-                    datachunks += chunk;
+function processLobby(lobbyData) {
+  lobby.lobbyData = lobbyData;
+  if (lobby.eloAvailable) {
+    const mapName = lobby.eloMapName;
+    Object.keys(lobby.eloList).forEach((user) => {
+      if (!lobby.lobbyData.allPlayers.includes(user)) {
+        delete lobby.eloList[user];
+      }
+    });
+    lobby.lobbyData.allPlayers.forEach(function (user) {
+      if (
+        !Object.keys(lobby.eloList).includes(user) &&
+        !lobby.lookingUpELO.includes(user)
+      ) {
+        lobby.lookingUpELO.push(user);
+        if (autoHost.eloLookup === "wc3stats") {
+          https
+            .get(
+              `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
+                .trim()
+                .replace(/\s/g, "%20")}`,
+              (resp) => {
+                let dataChunks = "";
+                resp.on("data", (chunk) => {
+                  dataChunks += chunk;
+                });
+                // The whole response has been received. Print out the result.
+                resp.on("end", () => {
+                  const jsonData = JSON.parse(dataChunks);
+                  let indexOfUser = lobby.lookingUpELO.indexOf(user);
+                  if (indexOfUser > -1) {
+                    lobby.lookingUpELO.slice(indexOfUser);
+                  }
+                  let elo = 500;
+                  if (jsonData.body.length > 0) {
+                    elo = jsonData.body[0].rating;
+                  }
+                  lobby.eloList[user] = elo;
+                  // Send new step to GUI
+                  sendProgress(
+                    "Got ELO for " + user,
+                    (Object.keys(lobby.eloList).length /
+                      (lobby.lobbyData.openPlayerSlots +
+                        lobby.lobbyData.allPlayers.length)) *
+                      90 +
+                      10
+                  );
+                  log.silly(JSON.stringify(lobby));
+                  win.webContents.send("fromMain", {
+                    messageType: "lobbyUpdate",
+                    data: lobby,
                   });
-                  // The whole response has been received. Print out the result.
-                  resp.on("end", () => {
-                    const jsonData = JSON.parse(datachunks);
-                    let elo = 500;
-                    if (jsonData.body.length > 0) {
-                      elo = jsonData.body[0].rating;
-                    }
-                    lobbyData.eloList[user] = elo;
-                    sendProgress(
-                      "Got ELO for " + user,
-                      Object.keys(lobbyData.eloList).length /
-                        lobbyData.mapData.playerCount -
-                        10
-                    );
-                    robot.typeStringDelayed(
-                      user + " ELO: " + elo.toString(),
-                      10000
-                    );
-                    robot.keyTap("enter");
-                    if (lobbyData.lobbyData.openPlayerSlots === 0) {
-                      finalizeLobby(lobbyData);
-                    }
-                  });
-                }
-              )
-              .on("error", (err) => {
-                log.error("Error: " + err.message);
-              });
-          }
+                  socket.send(JSON.stringify({ messageType: "sendChat" }));
+                  robot.typeStringDelayed(
+                    user + " ELO: " + elo.toString(),
+                    10000
+                  );
+                  robot.keyTap("enter");
+                  // If the lobby is full, and we have the ELO for everyone,
+                  if (
+                    lobby.lobbyData.openPlayerSlots === 0 &&
+                    Object.keys(lobby.eloList).length ===
+                      lobby.lobbyData.allPlayers.length
+                  ) {
+                    finalizeLobby();
+                  }
+                });
+              }
+            )
+            .on("error", (err) => {
+              log.error("Error: " + err.message);
+            });
         }
-      });
+      }
     });
   }
-  if (autoHost.eloLookup !== "off") {
-    win.webContents.send("fromMain", {
-      messageType: "lobbyElo",
-      eloList: lobbyData,
-    });
-    log.info(lobbyData);
-    if (lobbyData.mapData.isHost && autoHost.enabled && autoHost.ghostHost) {
-      socket.send(JSON.stringify({ messageType: "start" }));
-      setTimeout(quitEndGame, 60000);
-    }
-  }
+  win.webContents.send("fromMain", {
+    messageType: "lobbyUpdate",
+    data: lobby,
+  });
 }
 
-function finalizeLobby(lobbyData) {
-  lobbyData.totalElo = Object.values(lobbyData.eloList).reduce(
-    (a, b) => a + b,
-    0
-  );
+function finalizeLobby() {
+  lobby.totalElo = Object.values(lobby.eloList).reduce((a, b) => a + b, 0);
   let smallestEloDiff = Number.POSITIVE_INFINITY;
   let bestCombo = [];
   const combos = new Combination(
-    Object.keys(lobbyData.eloList),
-    Math.floor(Object.keys(lobbyData.eloList).length / 2)
+    Object.keys(lobby.eloList),
+    Math.floor(Object.keys(lobby.eloList).length / 2)
   );
   for (const combo of combos) {
-    const comboElo = combo.reduce(
-      (a, b) => a + parseInt(lobbyData.eloList[b]),
-      0
-    );
-    const eloDiff = Math.abs(lobbyData.totalElo / 2 - comboElo);
+    const comboElo = combo.reduce((a, b) => a + parseInt(lobby.eloList[b]), 0);
+    const eloDiff = Math.abs(lobby.totalElo / 2 - comboElo);
     if (eloDiff < smallestEloDiff) {
       smallestEloDiff = eloDiff;
       bestCombo = combo;
     }
   }
-  lobbyData.bestCombo = bestCombo;
-  lobbyData.eloDiff = smallestEloDiff;
-  swapHelper(lobbyData);
-
-  win.webContents.send("fromMain", {
-    messageType: "lobbyElo",
-    eloList: lobbyData.lobbyData,
-  });
-  log.info(lobbyData);
-  if (!lobbyData.mapData.isHost) {
+  lobby.bestCombo = bestCombo;
+  lobby.eloDiff = smallestEloDiff;
+  swapHelper(lobby);
+  if (!lobby.mapData.isHost) {
     robot.typeStringDelayed(
-      lobbyData.leastSwap + " should be: " + bestCombo.join(", "),
+      lobby.leastSwap + " should be: " + bestCombo.join(", "),
       10000
     );
     robot.keyTap("enter");
   } else {
-    for (let i = 0; i < lobbyData.swaps[0].length; i++) {
+    for (let i = 0; i < lobby.swaps[0].length; i++) {
       robot.typeStringDelayed(
-        "!swap " + lobbyData.swaps[0][i] + " " + lobbyData.swaps[1][i],
+        "!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i],
         10000
       );
       robot.keyTap("enter");
       robot.keyTap("enter");
     }
-    if (autoHost.enabled && autoHost.ghostHost) {
+    if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
       socket.send(JSON.stringify({ messageType: "start" }));
       setTimeout(quitEndGame, 60000);
     }
@@ -516,7 +507,7 @@ function swapHelper(lobbyData) {
     lobbyData.bestCombo,
     lobbyData.lobbyData.teamList.playerTeams[team2].players
   );
-  log.info(bestComboInTeam1, bestComboInTeam2);
+  log.verbose(bestComboInTeam1, bestComboInTeam2);
   // If not excludeHostFromSwap and team1 has more best combo people, or excludeHostFromSwap and the best combo includes the host keep all best combo players in team 1.
   if (
     (!excludeHostFromSwap &&

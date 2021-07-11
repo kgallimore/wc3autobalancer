@@ -93,3 +93,6 @@ dist/
 
 # Random Testing Files
 tempTest/
+
+# vscode settings
+.vscode/

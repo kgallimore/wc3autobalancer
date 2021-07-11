@@ -3,7 +3,7 @@ let lobby = {};
 let menuState = "Out of Menus";
 let joiningLobby = false;
 let autoHost = {
-  enabled: false,
+  type: "off",
   mapName: "",
   ghostHost: false,
   mapDirectory: "\\Download",
@@ -26,9 +26,10 @@ function emptyTeams() {
 function wsSetup() {
   webSocket = new WebSocket("ws://127.0.0.1:8888");
   webSocket.onopen = function (event) {
-    webSocket.send(
-      JSON.stringify({ messageType: "info", data: "Connected. Hello!" })
-    );
+    sendSocket("info", "Connected. Hello!");
+    if (lobby && Object.keys(lobby).length > 0) {
+      sendSocket("lobbyData", lobby);
+    }
   };
   webSocket.onclose = function (event) {
     window.setTimeout(wsSetup, 5000);
@@ -99,7 +100,7 @@ function mutationsSetup() {
       joiningLobby = false;
       menuState = newMenuState;
       sendSocket("menusChange", menuState);
-      if (autoHost.enabled) {
+      if (autoHost.type !== "off") {
         switch (newMenuState) {
           case "Main Menu":
             clickCustomGames();
@@ -111,7 +112,7 @@ function mutationsSetup() {
             createLobby();
             break;
           case "Score Screen":
-            if (autoHost.enabled) {
+            if (autoHost.type !== "off") {
               document.querySelector("div.EscapeIcon").click();
             }
             break;
@@ -120,7 +121,7 @@ function mutationsSetup() {
 
       if (menuState === "In Lobby") {
         getLobbyHelper();
-        if (autoHost.enabled) {
+        if (autoHost.type !== "off") {
           if (autoHost.ghostHost) {
             moveInLobby();
           }
@@ -196,7 +197,7 @@ function moveInLobby() {
       });
   } else {
     try {
-      if (lobby && lobby.teamList.specTeams !== {}) {
+      if (lobby && Object.keys(lobby.lobbyData.teamList.specTeams).length > 0) {
         Object.keys(lobby.teamList.specTeams).forEach(function (teamName) {
           if (lobby.teamList.specTeams[teamName].openSlots > 0) {
             document
@@ -336,7 +337,7 @@ function createLobby() {
 
 function getLobbyHelper() {
   if (menuState === "In Lobby") {
-    lobby.mapData = getLobbyData();
+    lobby.mapData = getMapData();
     if (!lobby.mapData) {
       sendSocket("error", e.message + "\n" + e.stack);
       setTimeout(getLobbyHelper, 1000);
@@ -382,7 +383,7 @@ function getMapData() {
 function getLobbyData() {
   try {
     let teamList = { playerTeams: {}, otherTeams: {}, specTeams: {} };
-    let playerCount = 0;
+    let allPlayers = [];
     let openPlayerSlots = 0;
     let countPlayers = false;
 
@@ -416,7 +417,7 @@ function getLobbyData() {
               if (!testComputer.test(playerName)) {
                 teamPointer.players.push(playerName);
                 if (countPlayers) {
-                  playerCount++;
+                  allPlayers.push(playerName);
                 }
               } else {
                 teamPointer.computers++;
@@ -445,7 +446,7 @@ function getLobbyData() {
       });
     return {
       openPlayerSlots: openPlayerSlots,
-      playerCount: playerCount,
+      allPlayers: allPlayers,
       teamList: teamList,
     };
   } catch (e) {

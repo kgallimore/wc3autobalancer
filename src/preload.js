@@ -1,12 +1,11 @@
 const { contextBridge, ipcRenderer, app } = require("electron");
 const Store = require("electron-store");
 const store = new Store();
-// After I stop changing these values aroung I can just get the whole dict
+// After I stop changing these values around I can just get the whole dict
 //var autoHost = store.get("autoHost")
 var autoHost = {
-  enabled: store.get("autoHost.enabled") || false,
+  type: store.get("autoHost.type") || "off",
   mapName: store.get("autoHost.mapName") || "",
-  ghostHost: store.get("autoHost.ghostHost") || false,
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
@@ -31,40 +30,33 @@ contextBridge.exposeInMainWorld("api", {
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-  const autoHostCheck = document.getElementById("autoHostCheck");
-  const ghostHostCheck = document.getElementById("ghostHostCheck");
+  const autoHostState = document.getElementById("autoHostState");
+  const eloLookupState = document.getElementById("eloLookup");
   const autoHostMapName = document.getElementById("autoHostMapName");
   const autoHostGameName = document.getElementById("autoHostGameName");
   const mapDirectorySpan = document.getElementById("mapDirectorySpan");
 
-  autoHostCheck.checked = autoHost.enabled;
-  ghostHostCheck.checked = autoHost.ghostHost;
+  autoHostState.value = autoHost.type;
+  eloLookupState.value = autoHost.eloLookup;
 
   autoHostMapName.value = autoHost.mapName;
   autoHostGameName.value = autoHost.gameName;
   mapDirectorySpan.innerText = "\\" + autoHost.mapDirectory.join("\\");
 
-  document.querySelector(`input[value="${autoHost.eloLookup}"]`).checked = true;
+  autoHostState.addEventListener("change", updateAutoHost);
 
-  document
-    .querySelectorAll("input[type='checkbox'], input[type='radio']")
-    .forEach((input) => {
-      input.addEventListener("change", updateAutoHost);
-    });
-
-  updateDisabledState(autoHost.enabled);
+  updateDisabledState(autoHost.type !== "off");
 
   function updateAutoHost(event) {
-    updateDisabledState(autoHostCheck.checked);
+    updateDisabledState(autoHostState.value !== "off");
 
     ipcRenderer.send("toMain", {
       messageType: "autoHost",
       data: {
-        enabled: autoHostCheck.checked,
-        ghostHost: ghostHostCheck.checked,
+        type: autoHostState.value,
         mapName: autoHostMapName.value,
         gameName: autoHostGameName.value,
-        eloLookup: document.querySelector("input[type='radio']:checked").value,
+        eloLookup: eloLookupState.value,
         mapDirectory: store.get("autoHost.mapDirectory"),
       },
     });
