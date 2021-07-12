@@ -344,7 +344,7 @@ function processMapData(lobbyData) {
           const jsonData = JSON.parse(dataChunks);
           lobby.eloAvailable = jsonData.status === "OK";
           lobby.eloList = {};
-          lobby.lookingUpELO = [];
+          lobby.lookingUpELO = new Set();
           sendWindow({ messageType: "lobbyData", data: lobby });
           processLobby(lobbyData.lobbyData);
           // TODO check variants, seasons, modes, and ladders
@@ -369,13 +369,14 @@ function processLobby(lobbyData) {
       if (!lobby.lobbyData.allPlayers.includes(user)) {
         delete lobby.eloList[user];
       }
+      lobby.lookingUpELO.delete(user);
     });
     lobby.lobbyData.allPlayers.forEach(function (user) {
       if (
         !Object.keys(lobby.eloList).includes(user) &&
-        !lobby.lookingUpELO.includes(user)
+        !lobby.lookingUpELO.has(user)
       ) {
-        lobby.lookingUpELO.push(user);
+        lobby.lookingUpELO.add(user);
         if (autoHost.eloLookup === "wc3stats") {
           https
             .get(
@@ -390,42 +391,47 @@ function processLobby(lobbyData) {
                 // The whole response has been received. Print out the result.
                 resp.on("end", () => {
                   const jsonData = JSON.parse(dataChunks);
-                  let indexOfUser = lobby.lookingUpELO.indexOf(user);
-                  if (indexOfUser > -1) {
-                    lobby.lookingUpELO.slice(indexOfUser);
-                  }
+                  lobby.lookingUpELO.delete(user);
                   let elo = 500;
                   if (jsonData.body.length > 0) {
                     elo = jsonData.body[0].rating;
                   }
-                  lobby.eloList[user] = elo;
-                  // Send new step to GUI
-                  sendProgress(
-                    "Got ELO for " + user,
-                    (Object.keys(lobby.eloList).length /
-                      (lobby.lobbyData.openPlayerSlots +
-                        lobby.lobbyData.allPlayers.length)) *
-                      90 +
-                      10
-                  );
-                  log.silly(JSON.stringify(lobby));
-                  win.webContents.send("fromMain", {
-                    messageType: "lobbyUpdate",
-                    data: lobby,
-                  });
-                  socket.send(JSON.stringify({ messageType: "sendChat" }));
-                  robot.typeStringDelayed(
-                    user + " ELO: " + elo.toString(),
-                    10000
-                  );
-                  robot.keyTap("enter");
-                  // If the lobby is full, and we have the ELO for everyone,
-                  if (
-                    lobby.lobbyData.openPlayerSlots === 0 &&
-                    Object.keys(lobby.eloList).length ===
-                      lobby.lobbyData.allPlayers.length
-                  ) {
-                    finalizeLobby();
+                  // If they haven't left, set real ELO
+                  if (lobby.lobbyData.allPlayers.includes(user)) {
+                    lobby.eloList[user] = elo;
+                    sendProgress(
+                      "Got ELO for " + user,
+                      (Object.keys(lobby.eloList).length /
+                        (lobby.lobbyData.openPlayerSlots +
+                          lobby.lobbyData.allPlayers.length)) *
+                        90 +
+                        10
+                    );
+                    log.silly(JSON.stringify(lobby));
+                    // Send new step to GUI
+                    win.webContents.send("fromMain", {
+                      messageType: "lobbyUpdate",
+                      data: lobby,
+                    });
+                    socket.send(JSON.stringify({ messageType: "sendChat" }));
+                    log.verbose(user + " ELO: " + elo.toString());
+                    robot.typeStringDelayed(
+                      user + " ELO: " + elo.toString(),
+                      10000
+                    );
+                    robot.keyTap("enter");
+                    log.silly(lobby.lookingUpELO);
+                    log.silly(lobby.eloList);
+                    // If the lobby is full, and we have the ELO for everyone,
+                    if (
+                      lobby.lobbyData.openPlayerSlots === 0 &&
+                      Object.keys(lobby.eloList).length ===
+                        lobby.lobbyData.allPlayers.length
+                    ) {
+                      finalizeLobby();
+                    }
+                  } else {
+                    log.verbose(user + " left before ELO was found");
                   }
                 });
               }
@@ -437,6 +443,15 @@ function processLobby(lobbyData) {
       }
     });
   }
+  if (
+    (lobby.eloAvailable &&
+      lobby.lobbyData.openPlayerSlots === 0 &&
+      Object.keys(lobby.eloList).length ===
+        lobby.lobbyData.allPlayers.length) ||
+    (!lobby.eloAvailable && lobby.lobbyData.openPlayerSlots === 0)
+  ) {
+    finalizeLobby();
+  }
   win.webContents.send("fromMain", {
     messageType: "lobbyUpdate",
     data: lobby,
@@ -444,43 +459,48 @@ function processLobby(lobbyData) {
 }
 
 function finalizeLobby() {
-  lobby.totalElo = Object.values(lobby.eloList).reduce((a, b) => a + b, 0);
-  let smallestEloDiff = Number.POSITIVE_INFINITY;
-  let bestCombo = [];
-  const combos = new Combination(
-    Object.keys(lobby.eloList),
-    Math.floor(Object.keys(lobby.eloList).length / 2)
-  );
-  for (const combo of combos) {
-    const comboElo = combo.reduce((a, b) => a + parseInt(lobby.eloList[b]), 0);
-    const eloDiff = Math.abs(lobby.totalElo / 2 - comboElo);
-    if (eloDiff < smallestEloDiff) {
-      smallestEloDiff = eloDiff;
-      bestCombo = combo;
-    }
-  }
-  lobby.bestCombo = bestCombo;
-  lobby.eloDiff = smallestEloDiff;
-  swapHelper(lobby);
-  if (!lobby.mapData.isHost) {
-    robot.typeStringDelayed(
-      lobby.leastSwap + " should be: " + bestCombo.join(", "),
-      10000
+  if (lobby.eloAvailable) {
+    lobby.totalElo = Object.values(lobby.eloList).reduce((a, b) => a + b, 0);
+    let smallestEloDiff = Number.POSITIVE_INFINITY;
+    let bestCombo = [];
+    const combos = new Combination(
+      Object.keys(lobby.eloList),
+      Math.floor(Object.keys(lobby.eloList).length / 2)
     );
-    robot.keyTap("enter");
-  } else {
-    for (let i = 0; i < lobby.swaps[0].length; i++) {
+    for (const combo of combos) {
+      const comboElo = combo.reduce(
+        (a, b) => a + parseInt(lobby.eloList[b]),
+        0
+      );
+      const eloDiff = Math.abs(lobby.totalElo / 2 - comboElo);
+      if (eloDiff < smallestEloDiff) {
+        smallestEloDiff = eloDiff;
+        bestCombo = combo;
+      }
+    }
+    lobby.bestCombo = bestCombo;
+    lobby.eloDiff = smallestEloDiff;
+    swapHelper(lobby);
+    if (!lobby.mapData.isHost) {
       robot.typeStringDelayed(
-        "!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i],
+        lobby.leastSwap + " should be: " + bestCombo.join(", "),
         10000
       );
       robot.keyTap("enter");
-      robot.keyTap("enter");
+    } else {
+      for (let i = 0; i < lobby.swaps[0].length; i++) {
+        robot.typeStringDelayed(
+          "!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i],
+          10000
+        );
+        robot.keyTap("enter");
+        robot.keyTap("enter");
+      }
     }
-    if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
-      socket.send(JSON.stringify({ messageType: "start" }));
-      setTimeout(quitEndGame, 60000);
-    }
+  }
+  if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
+    socket.send(JSON.stringify({ messageType: "start" }));
+    //setTimeout(quitEndGame, 60000);
   }
 }
 
@@ -497,7 +517,6 @@ function swapHelper(lobbyData) {
   let swapsFromTeam2 = [];
   const team1 = Object.keys(lobbyData.lobbyData.teamList.playerTeams)[0];
   const team2 = Object.keys(lobbyData.lobbyData.teamList.playerTeams)[1];
-  excludeHostFromSwap = true;
   const bestComboInTeam1 = intersect(
     lobbyData.bestCombo,
 

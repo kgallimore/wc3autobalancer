@@ -130,7 +130,7 @@ function mutationsSetup() {
               .querySelectorAll("div.GameLobby-PlayerRow-Container")
               .forEach(function (element) {
                 lobbyObserver.observe(element, {
-                  attributes: false,
+                  attributes: true,
                   childList: true,
                   subtree: true,
                 });
@@ -173,10 +173,12 @@ function clickCustomGames() {
 }
 
 function handleLobby() {
+  sendSocket("info", "Lobby changed.");
   lobby.lobbyData = getLobbyData();
   if (lobby.lobbyData) {
     sendSocket("lobbyUpdate", lobby.lobbyData);
   } else {
+    setTimeout(handleLobby, 250);
     sendSocket("error", e.message + "\n" + e.stack);
   }
 }
@@ -226,8 +228,10 @@ function clickStart() {
   try {
     const element = document.querySelector(
       "div.Primary-Button.Primary-Button-Green"
-    ).firstChild.firstChild;
-    element.click();
+    );
+    if (element) {
+      element.firstChild.firstChild.click();
+    }
   } catch (e) {
     sendSocket("error", ["clickStart", e.message + "\n" + e.stack]);
   }
@@ -340,13 +344,13 @@ function getLobbyHelper() {
     lobby.mapData = getMapData();
     if (!lobby.mapData) {
       sendSocket("error", e.message + "\n" + e.stack);
-      setTimeout(getLobbyHelper, 1000);
+      setTimeout(getLobbyHelper, 500);
       return;
     }
     lobby.lobbyData = getLobbyData();
     if (!lobby.lobbyData) {
       sendSocket("error", e.message + "\n" + e.stack);
-      setTimeout(getLobbyHelper, 1000);
+      setTimeout(getLobbyHelper, 500);
       return;
     }
     sendSocket("lobbyData", lobby);
@@ -414,6 +418,9 @@ function getLobbyData() {
               const playerName =
                 playerRow.querySelector("div.nameTag").innerText;
               teamPointer.slots.push(playerName);
+              if (playerName === "") {
+                return false;
+              }
               if (!testComputer.test(playerName)) {
                 teamPointer.players.push(playerName);
                 if (countPlayers) {
