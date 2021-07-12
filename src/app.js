@@ -139,6 +139,10 @@ autoUpdater.on("update-not-available", (info) => {
   });
 });
 autoUpdater.on("error", (err) => {
+  new Notification({
+    title: "Update Failed",
+    body: "An update is available, but failed!",
+  }).show();
   win.webContents.send("fromMain", {
     messageType: "updater",
     data: "Error in auto-updater. " + err,
@@ -223,6 +227,7 @@ const createWindow = () => {
 
 app.on("ready", function () {
   log.info("App ready");
+  autoUpdater.checkForUpdatesAndNotify();
   globalShortcut.register("Alt+CommandOrControl+I", () => {
     if (socket) {
       socket.send(JSON.stringify({ messageType: "lobby" }));
@@ -500,7 +505,7 @@ function finalizeLobby() {
   }
   if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
     socket.send(JSON.stringify({ messageType: "start" }));
-    //setTimeout(quitEndGame, 60000);
+    setTimeout(quitEndGame, 60000);
   }
 }
 
