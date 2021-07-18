@@ -1,4 +1,5 @@
 // Test algos and whatever here
+/*
 const list = {
   mapName: "HLW 8.3",
   mapAuthor: "Author: BuuFuu",
@@ -78,4 +79,8 @@ function swapHelper(list) {
 swapHelper(list);
 console.log(list.swaps[0], list.swaps[1]);
 
-console.log(list.leastSwap);
+console.log(list.leastSwap);*/
+
+let gameName = "Testing the game name!";
+var re = new RegExp("^" + gameName + "( #\\d*)?$", "g");
+console.log("Testing the game name!".match(re));

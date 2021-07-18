@@ -52,6 +52,28 @@
                   maxlength="27" minlength="3">
               </div>
             </div>
+            <div class="row">
+              <div class="col">
+                <div class="d-flex justify-content-center">
+                  <input type="checkbox" class="btn-check" id="autoHostPrivateCheck">
+                  <label for="autoHostPrivateCheck" class="btn btn-outline-primary">Private Lobbies</label>
+                </div>
+              </div>
+              <div class="col">
+                <div class="d-flex justify-content-center">
+                  <input type="checkbox" class="btn-check" id="autoHostIncrementCheck" disabled checked>
+                  <label for="autoHostIncrementCheck" class="btn btn-outline-primary">Incremental Lobbies</label>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <div class="d-flex justify-content-center">
+                  <input type="checkbox" class="btn-check" id="autoHostSoundsCheck">
+                  <label for="autoHostSoundsCheck" class="btn btn-outline-primary">Sound Notifications</label>
+                </div>
+              </div>
+            </div>
             <div class="row pt-4">
               <div class="col">
                 <button type="button" class="btn btn-primary" id="autoHostMapDirectory">Set Map directory</button>
@@ -75,28 +97,28 @@
   </div>
   <h4>Menu State: <span id="menuStateLabel">Out of Menus</span></h4>
   <h4>Current Step: <span id="progressBarLabel"></span></h4>
-    <div class="progress">
-      <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
-        aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
-    </div>
-    <table class="table table-sm">
-      <thead>
-        <tr>
-          <th>Map Name</th>
-          <th>Game Name</th>
-          <th>Game Host</th>
-          <th>ELO Available</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td id="mapName"></td>
-          <td id="gameName"></td>
-          <td id="gameHost"></td>
-          <td id="eloAvailable"></td>
-        </tr>
-      </tbody>
-    </table>
+  <div class="progress">
+    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+      aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+  </div>
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>Map Name</th>
+        <th>Game Name</th>
+        <th>Game Host</th>
+        <th>ELO Available</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="mapName"></td>
+        <td id="gameName"></td>
+        <td id="gameHost"></td>
+        <td id="eloAvailable"></td>
+      </tr>
+    </tbody>
+  </table>
   <div class="p-2" id="tablesDiv">
   </div>
 </body>

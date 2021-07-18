@@ -1,15 +1,20 @@
 {
   "name": "wc3autobalancer",
   "productName": "WC3 Auto Balancer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Auto Balance Warcraft 3 Lobbies",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/kgallimore/wc3autobalancer.git"
+  },
   "main": "src/app.js",
   "scripts": {
     "start": "electron-forge start",
     "publish": "electron-builder --publish always",
     "lint": "echo \"No linting configured\"",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "rebuild": "electron-rebuild"
   },
   "build": {
     "appId": "wc3autobalancer",
@@ -20,6 +25,14 @@
       },
       {
         "from": "./webui.js",
+        "to": "."
+      },
+      {
+        "from": "./src/quitHLW.png",
+        "to": "."
+      },
+      {
+        "from": "./src/quitNormal.png",
         "to": "."
       }
     ],
@@ -79,16 +92,18 @@
     }
   },
   "dependencies": {
+    "@nut-tree/nut-js": "^1.7.0",
     "electron-log": "^4.3.5",
     "electron-store": "^8.0.0",
     "electron-updater": "^4.3.9",
     "esm": "^3.2.25",
-    "js-combinatorics": "^1.4.5",
+    "jimp": "^0.16.1",
+    "js-combinatorics": "^1.5.3",
     "node-abi": "^2.30.0",
-    "npm": "^7.19.1",
-    "robotjs": "github:octalmage/robotjs",
+    "robotjs": "^0.6.0",
+    "sound-play": "^1.1.0",
     "w3gjs": "^2.4.2",
-    "ws": "^7.5.1"
+    "ws": "^7.5.3"
   },
   "devDependencies": {
     "@electron-forge/cli": "^6.0.0-beta.57",
@@ -96,7 +111,8 @@
     "@electron-forge/maker-rpm": "^6.0.0-beta.57",
     "@electron-forge/maker-squirrel": "^6.0.0-beta.57",
     "@electron-forge/maker-zip": "^6.0.0-beta.57",
-    "electron": "13.1.5",
-    "electron-builder": "^22.11.7"
+    "electron": "^13.1.7",
+    "electron-builder": "^22.11.7",
+    "electron-rebuild": "^2.3.5"
   }
 }

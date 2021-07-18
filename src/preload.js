@@ -5,6 +5,8 @@ const store = new Store();
 //var autoHost = store.get("autoHost")
 var autoHost = {
   type: store.get("autoHost.type") || "off",
+  private: store.get("autoHost.private") || false,
+  sounds: store.get("autoHost.sounds") || false,
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
@@ -35,15 +37,22 @@ window.addEventListener("DOMContentLoaded", () => {
   const autoHostMapName = document.getElementById("autoHostMapName");
   const autoHostGameName = document.getElementById("autoHostGameName");
   const mapDirectorySpan = document.getElementById("mapDirectorySpan");
+  const autoHostPrivateCheck = document.getElementById("autoHostPrivateCheck");
+  const autoHostSoundsCheck = document.getElementById("autoHostSoundsCheck");
 
   autoHostState.value = autoHost.type;
   eloLookupState.value = autoHost.eloLookup;
+
+  autoHostPrivateCheck.checked = autoHost.private;
+  autoHostSoundsCheck.checked = autoHost.sounds;
 
   autoHostMapName.value = autoHost.mapName;
   autoHostGameName.value = autoHost.gameName;
   mapDirectorySpan.innerText = "\\" + autoHost.mapDirectory.join("\\");
 
   autoHostState.addEventListener("change", updateAutoHost);
+  autoHostPrivateCheck.addEventListener("change", updateAutoHost);
+  eloLookupState.addEventListener("change", updateAutoHost);
 
   updateDisabledState(autoHost.type !== "off");
 
@@ -54,6 +63,8 @@ window.addEventListener("DOMContentLoaded", () => {
       messageType: "autoHost",
       data: {
         type: autoHostState.value,
+        private: autoHostPrivateCheck.checked,
+        sounds: autoHostSoundsCheck.checked,
         mapName: autoHostMapName.value,
         gameName: autoHostGameName.value,
         eloLookup: eloLookupState.value,

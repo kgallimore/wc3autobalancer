@@ -14,12 +14,22 @@ require = require("esm")(module);
 const { Combination } = require("js-combinatorics");
 const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
-const robot = require("robotjs");
 const https = require("https");
 const WebSocket = require("ws");
 const path = require("path");
 const Store = require("electron-store");
 const wss = new WebSocket.Server({ port: 8888 });
+const {
+  keyboard,
+  screen,
+  getActiveWindow,
+  clipboard,
+  Key,
+} = require("@nut-tree/nut-js");
+const cv = require("opencv4nodejs-prebuilt");
+const robot = require("robotjs");
+const Jimp = require("jimp");
+const sound = require("sound-play");
 
 const store = new Store();
 
@@ -35,10 +45,13 @@ var socket = null;
 var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
 var lobby = {};
+var warcraftInFocus = true;
 // After I stop changing these values around I can just get the whole dict
 //var autoHost = store.get("autoHost")
 var autoHost = {
-  enabled: store.get("autoHost.type") || "off",
+  type: store.get("autoHost.type") || "off",
+  private: store.get("autoHost.private") || false,
+  sounds: store.get("autoHost.sounds") || false,
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
@@ -75,10 +88,7 @@ ipcMain.on("toMain", (event, args) => {
             log.info(`Change map directory to ${mapDir.join("\\")}`);
             autoHost.mapDirectory = mapDir;
             store.set("autoHost.mapDirectory", mapDir);
-            sendWindow({
-              messageType: "gotMapDirectory",
-              data: autoHost.mapDirectory,
-            });
+            sendWindow("gotMapDirectory", autoHost.mapDirectory);
           }
         })
         .catch((err) => {
@@ -140,9 +150,10 @@ autoUpdater.on("update-not-available", (info) => {
 });
 autoUpdater.on("error", (err) => {
   new Notification({
-    title: "Update Failed",
-    body: "An update is available, but failed!",
+    title: "Update Error",
+    body: "There was an error with the auto updater!",
   }).show();
+  log.error(err);
   win.webContents.send("fromMain", {
     messageType: "updater",
     data: "Error in auto-updater. " + err,
@@ -227,7 +238,7 @@ const createWindow = () => {
 
 app.on("ready", function () {
   log.info("App ready");
-  autoUpdater.checkForUpdatesAndNotify();
+  setupMats();
   globalShortcut.register("Alt+CommandOrControl+I", () => {
     if (socket) {
       socket.send(JSON.stringify({ messageType: "lobby" }));
@@ -249,6 +260,7 @@ app.on("ready", function () {
     }
   });
   createWindow();
+  autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on("window-all-closed", () => {
@@ -283,20 +295,22 @@ function sendStatus(status = "Waiting For Connection") {
 function handleWSMessage(message) {
   message = JSON.parse(message);
   switch (message.messageType) {
-    case "robot":
+    case "typeGameName":
       gameNumber += 1;
-      robot.typeStringDelayed(
+      typeText(autoHost.gameName + " #" + gameNumber.toString(), true);
+      /*robot.typeStringDelayed(
         autoHost.gameName + " #" + gameNumber.toString(),
         10000
       );
-      robot.keyTap("enter");
+      robot.keyTap("enter");*/
+      break;
     case "info":
       log.info(JSON.stringify(message.data));
       break;
     case "menusChange":
       menuState = message.data;
-      sendWindow(message);
-      log.info(message);
+      sendWindow(message.messageType, message.data);
+      log.verbose(message);
       break;
     case "lobbyData":
       // Flush any previous lobbies
@@ -305,7 +319,7 @@ function handleWSMessage(message) {
       processMapData(message.data);
       break;
     case "lobbyUpdate":
-      log.verbose(JSON.stringify(message.data));
+      log.verbose("Lobby update:\n" + JSON.stringify(message.data));
       processLobby(message.data);
       break;
     case "error":
@@ -324,48 +338,49 @@ function handleWSMessage(message) {
 }
 
 function processMapData(lobbyData) {
-  lobby.mapData = lobbyData.mapData;
-  const mapName = lobby.mapData.mapName;
-  if (!lobby.eloMapName) {
-    if (lobby.mapData.mapName.match(/(HLW)/i)) {
-      lobby.eloMapName = "HLW";
-    } else {
-      lobby.eloMapName = mapName
-        .trim()
-        .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
-        .replace(/\s/g, "%20");
+  if (menuState === "In Lobby") {
+    lobby.mapData = lobbyData.mapData;
+    const mapName = lobby.mapData.mapName;
+    if (!lobby.eloMapName) {
+      if (lobby.mapData.mapName.match(/(HLW)/i)) {
+        lobby.eloMapName = "HLW";
+      } else {
+        lobby.eloMapName = mapName
+          .trim()
+          .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
+          .replace(/\s/g, "%20");
+      }
     }
-  }
-  if (autoHost.eloLookup === "wc3stats") {
-    https
-      .get(`https://api.wc3stats.com/maps/${lobby.eloMapName}`, (resp) => {
-        let dataChunks = "";
-        // A chunk of data has been received.
-        resp.on("data", (chunk) => {
-          dataChunks += chunk;
-        });
-        // The whole response has been received. Print out the result.
-        resp.on("end", () => {
-          const jsonData = JSON.parse(dataChunks);
-          lobby.eloAvailable = jsonData.status === "OK";
-          lobby.eloList = {};
-          lobby.lookingUpELO = new Set();
-          sendWindow({ messageType: "lobbyData", data: lobby });
-          processLobby(lobbyData.lobbyData);
-          // TODO check variants, seasons, modes, and ladders
-          /*if (lobbyData.eloAvailable) {
+    if (autoHost.eloLookup === "wc3stats") {
+      https
+        .get(`https://api.wc3stats.com/maps/${lobby.eloMapName}`, (resp) => {
+          let dataChunks = "";
+          // A chunk of data has been received.
+          resp.on("data", (chunk) => {
+            dataChunks += chunk;
+          });
+          // The whole response has been received. Print out the result.
+          resp.on("end", () => {
+            const jsonData = JSON.parse(dataChunks);
+            lobby.eloAvailable = jsonData.status === "OK";
+            lobby.eloList = {};
+            lobby.lookingUpELO = new Set();
+            sendWindow("lobbyData", lobby);
+            processLobby(lobbyData.lobbyData);
+            // TODO check variants, seasons, modes, and ladders
+            /*if (lobbyData.eloAvailable) {
             jsonData.body.variants.forEach((variant) => {
               variant.stats.forEach((stats) => {});
             });
           }*/
+          });
+        })
+        .on("error", (err) => {
+          log.error("Error: " + err.message);
         });
-      })
-      .on("error", (err) => {
-        log.error("Error: " + err.message);
-      });
+    }
   }
 }
-
 function processLobby(lobbyData) {
   lobby.lobbyData = lobbyData;
   if (lobby.eloAvailable) {
@@ -418,13 +433,9 @@ function processLobby(lobbyData) {
                       messageType: "lobbyUpdate",
                       data: lobby,
                     });
-                    socket.send(JSON.stringify({ messageType: "sendChat" }));
+                    sendSocket("sendChat");
                     log.verbose(user + " ELO: " + elo.toString());
-                    robot.typeStringDelayed(
-                      user + " ELO: " + elo.toString(),
-                      10000
-                    );
-                    robot.keyTap("enter");
+                    typeText(user + " ELO: " + elo.toString(), true);
                     log.silly(lobby.lookingUpELO);
                     log.silly(lobby.eloList);
                     // If the lobby is full, and we have the ELO for everyone,
@@ -457,12 +468,8 @@ function processLobby(lobbyData) {
   ) {
     finalizeLobby();
   }
-  win.webContents.send("fromMain", {
-    messageType: "lobbyUpdate",
-    data: lobby,
-  });
+  sendWindow("lobbyUpdate", lobby);
 }
-
 function finalizeLobby() {
   if (lobby.eloAvailable) {
     lobby.totalElo = Object.values(lobby.eloList).reduce((a, b) => a + b, 0);
@@ -487,33 +494,43 @@ function finalizeLobby() {
     lobby.eloDiff = smallestEloDiff;
     swapHelper(lobby);
     if (!lobby.mapData.isHost) {
-      robot.typeStringDelayed(
-        lobby.leastSwap + " should be: " + bestCombo.join(", "),
-        10000
-      );
-      robot.keyTap("enter");
+      sendSocket("sendChat");
+      typeText(lobby.leastSwap + " should be: " + bestCombo.join(", "), true);
     } else {
       for (let i = 0; i < lobby.swaps[0].length; i++) {
-        robot.typeStringDelayed(
-          "!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i],
-          10000
-        );
-        robot.keyTap("enter");
-        robot.keyTap("enter");
+        sendSocket("sendChat");
+        typeText("!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i], true);
       }
     }
   }
   if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
     socket.send(JSON.stringify({ messageType: "start" }));
-    setTimeout(quitEndGame, 60000);
+    setTimeout(tempFindQuit, 60000);
   }
 }
 
-function quitEndGame() {
-  // TODO make this not bad
-  if (menuState === "Out of Menus") {
-    robot.keyTap("q");
-    setTimeout(quitEndGame, 15000);
+async function findQuit() {
+  if (menuState === "Unknown" || menuState === "Out of Menus") {
+    if (activeWindowWar()) {
+      if (await screen.find("quitHLW.png")) {
+        log.verbose("Found quit. Press q");
+        await keyboard.type("q");
+        //robot.keyTap("q");
+        if (autoHost.sounds) {
+          sound.play(path.join(__dirname, "sounds/quit.wav"));
+        }
+      } else if (await screen.find("quitNormal.png")) {
+        log.verbose("Found quit. Press q");
+        await keyboard.type("q");
+        //robot.keyTap("q");
+        if (autoHost.sounds) {
+          sound.play(path.join(__dirname, "sounds/quit.wav"));
+        }
+      } else {
+        log.verbose("Did not find quit, try again in 5 seconds");
+      }
+    }
+    setTimeout(findQuit, 5000);
   }
 }
 
@@ -571,12 +588,100 @@ function intersect(a, b) {
   return [...new Set(a)].filter((x) => setB.has(x));
 }
 
-function sendWindow(message) {
-  win.webContents.send("fromMain", message);
+function sendWindow(messageType, message) {
+  win.webContents.send("fromMain", {
+    messageType: messageType,
+    data: message,
+  });
 }
-
 function sendSocket(messageType = "info", data = "none") {
   if (socket) {
     socket.send(JSON.stringify({ messageType: messageType, data: data }));
   }
+}
+
+async function activeWindowWar() {
+  let activeWindow = await getActiveWindow();
+  let title = await activeWindow.title;
+  const focused = title === "Warcraft III";
+  // Ensure that a notification is only sent the first time, if warcraft was focused before, but is no longer
+  if (!focused && warcraftInFocus) {
+    new Notification({
+      title: "Warcraft is not in focus",
+      body: "An action was attempted but Warcraft was not in focus",
+    }).show();
+  }
+  warcraftInFocus = focused;
+  return focused;
+}
+
+async function typeText(text, hitEnter = false) {
+  if (socket) {
+    if (activeWindowWar()) {
+      const oldClipboard = await clipboard.paste();
+      if (hitEnter) {
+        await keyboard.type(Key.Enter);
+      }
+      clipboard.copy(text).then(
+        keyboard
+          .pressKey(Key.LeftControl, Key.V)
+          .then(keyboard.releaseKey(Key.LeftControl, Key.V))
+          .then(clipboard.copy(oldClipboard))
+          .then(async () => {
+            if (hitEnter) {
+              await keyboard.type(Key.Enter);
+            }
+          })
+      );
+    } else {
+      setTimeout(typeText.bind(null, text), 3000);
+    }
+  }
+}
+
+// Everything below is temporary until nut-js fixes the issue with windows scaling
+// https://github.com/nut-tree/nut.js/issues/249
+
+let quitHLWMat, quitNormalMat;
+async function tempFindQuitHelper(templateMat, targetCoefficient = 0.9) {
+  let pic = robot.screen.capture();
+  const image = new Jimp(pic.width, pic.height);
+  let pos = 0;
+  image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
+    image.bitmap.data[idx + 2] = pic.image.readUInt8(pos++);
+    image.bitmap.data[idx + 1] = pic.image.readUInt8(pos++);
+    image.bitmap.data[idx + 0] = pic.image.readUInt8(pos++);
+    image.bitmap.data[idx + 3] = pic.image.readUInt8(pos++);
+  });
+  await image.writeAsync(`${__dirname}\\tempresolve.png`);
+  const target = await cv.imreadAsync(`${__dirname}\\tempresolve.png`);
+
+  // Match template (the brightest locations indicate the highest match)
+  const matched = target.matchTemplate(templateMat, 5);
+  return matched.minMaxLoc().maxVal >= targetCoefficient;
+}
+
+async function tempFindQuit() {
+  if (menuState === "Unknown" || menuState === "Out of Menus") {
+    if (activeWindowWar()) {
+      const foundQuitHLW = await tempFindQuitHelper(quitHLWMat);
+      const foundQuitNormal = await tempFindQuitHelper(quitNormalMat);
+      if (foundQuitHLW || foundQuitNormal) {
+        log.verbose("Found quit. Press q");
+        await keyboard.type("q");
+        //robot.keyTap("q");
+        if (autoHost.sounds) {
+          sound.play(path.join(__dirname, "sounds/quit.wav"));
+        }
+      } else {
+        log.verbose("Did not find quit, try again in 5 seconds");
+      }
+    }
+    setTimeout(tempFindQuit, 5000);
+  }
+}
+
+async function setupMats() {
+  quitHLWMat = await cv.imreadAsync(`${__dirname}\\quitHLW.png`);
+  quitNormalMat = await cv.imreadAsync(`${__dirname}\\quitNormal.png`);
 }

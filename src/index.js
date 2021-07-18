@@ -45,17 +45,22 @@ window.api.receive("fromMain", (data) => {
 });
 
 function generateLobbyData(data) {
-  document.getElementById("mapName").innerText = data.mapData.mapName;
-  document.getElementById("gameName").innerText = data.mapData.gameName;
-  document.getElementById("gameHost").innerText = data.mapData.gameHost;
-  document.getElementById(
-    "eloAvailable"
-  ).innerText = `${data.eloAvailable}. (${data.eloMapName})`;
+  try {
+    document.getElementById("mapName").innerText = data.mapData.mapName;
+    document.getElementById("gameName").innerText = data.mapData.gameName;
+    document.getElementById("gameHost").innerText = data.mapData.gameHost;
+    document.getElementById(
+      "eloAvailable"
+    ).innerText = `${data.eloAvailable}. (${data.eloMapName})`;
+  } catch (e) {
+    console.log(e.message, e.stack);
+  }
 }
 
 // This is going to be a very messy function,placeholder to just get it started
 function generateTables(lobby) {
   try {
+    console.log("Generating tables");
     document.getElementById("tablesDiv").innerHTML = "";
     let tbl;
     Object.keys(lobby.lobbyData.teamList.playerTeams).forEach((playerTeam) => {
