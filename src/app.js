@@ -672,7 +672,6 @@ async function tempFindQuitHelper(templateMat, targetCoefficient = 0.9) {
       await image.writeAsync(`${__dirname}\\..\\..\\tempresolve.png`);
       target = await cv.imreadAsync(`${__dirname}\\..\\..\\tempresolve.png`);
     }
-    // Match template (the brightest locations indicate the highest match)
     if (target) {
       const matched = target.matchTemplate(templateMat, 5);
       return matched.minMaxLoc().maxVal >= targetCoefficient;
@@ -687,7 +686,7 @@ async function tempFindQuitHelper(templateMat, targetCoefficient = 0.9) {
 }
 
 async function tempFindQuit() {
-  if (menuState === "In Game") {
+  if (socket && menuState === "In Game") {
     await activeWindowWar();
     if (warcraftInFocus) {
       log.verbose("Looking for quit");
