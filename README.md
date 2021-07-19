@@ -7,7 +7,7 @@
     * Full Auto host
         * Tries to join any observer, host, or spectator team
         * Starts the game once all non spectator/host/observer team slots are full
-        * Attempts to quit the game once it is over (This needs major work, right now it only tries to press "q" every 15 seconds. Only works when any Victory or Defeat screen pops up)
+        * Attempts to quit the game once it is over. Only works when the "Quit Mission" dialog comes up![quitNormal](https://user-images.githubusercontent.com/72752967/126089116-2488ea40-bd3f-4c80-a30c-0a8b0acc5766.png)
 * ## ELO Lookup and sorting ##
     * Grab the ELO of every player from www.wc3stats.com
         * Will figure out the best possible team combination, and figure out the best way to swap players for the least swaps.
