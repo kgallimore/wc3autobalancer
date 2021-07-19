@@ -1,7 +1,7 @@
 {
   "name": "wc3autobalancer",
   "productName": "WC3 Auto Balancer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Auto Balance Warcraft 3 Lobbies",
   "repository": {
     "type": "git",

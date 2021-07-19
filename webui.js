@@ -230,9 +230,14 @@ function moveInLobby() {
       });
   } else {
     try {
-      if (lobby && Object.keys(lobby.lobbyData.teamList.specTeams).length > 0) {
-        Object.keys(lobby.teamList.specTeams).forEach(function (teamName) {
-          if (lobby.teamList.specTeams[teamName].openSlots > 0) {
+      if (
+        lobby.lobbyData &&
+        Object.keys(lobby.lobbyData.teamList.specTeams).length > 0
+      ) {
+        Object.keys(lobby.lobbyData.teamList.specTeams).forEach(function (
+          teamName
+        ) {
+          if (lobby.lobbyData.teamList.specTeams[teamName].openSlots > 0) {
             document
               .querySelectorAll("div.TeamContainer-Name")
               .forEach((teamNameDiv) => {
@@ -250,7 +255,7 @@ function moveInLobby() {
         });
       }
     } catch (err) {
-      sendSocket("error", ["moveInLobby", err.message]);
+      sendSocket("error", ["moveInLobby", err.message, err.stack]);
     }
   }
 }
