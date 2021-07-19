@@ -260,7 +260,7 @@ app.on("ready", function () {
     }
   });
   createWindow();
-  //autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on("window-all-closed", () => {
