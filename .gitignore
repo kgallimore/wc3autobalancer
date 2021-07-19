@@ -97,3 +97,6 @@ tempTest/
 # vscode settings
 .vscode/
 src/tempresolve.png
+
+# Logs
+src/logs

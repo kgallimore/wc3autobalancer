@@ -28,23 +28,23 @@
         "to": "."
       },
       {
-        "from": "./src/quitHLW.png",
-        "to": "."
+        "from": "./src/images",
+        "to": "./images"
       },
       {
-        "from": "./src/quitNormal.png",
-        "to": "."
+        "from": "./src/sounds",
+        "to": "./sounds"
       }
     ],
     "win": {
       "target": [
         "nsis"
       ],
-      "icon": "src/scale.png"
+      "icon": "src/images/scale.png"
     },
     "nsis": {
-      "installerIcon": "src/scale.ico",
-      "uninstallerIcon": "src/scale.ico",
+      "installerIcon": "src/images/scale.ico",
+      "uninstallerIcon": "src/images/scale.ico",
       "uninstallDisplayName": "WC3 Auto Balancer",
       "include": "src/installer.nsh",
       "oneClick": false,

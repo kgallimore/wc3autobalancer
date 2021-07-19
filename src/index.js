@@ -67,7 +67,7 @@ function generateTables(lobby) {
       tbl = document.createElement("table");
       tbl.classList.add("table", "table-hover", "table-striped", "table-sm");
       let trow = tbl.createTHead().insertRow();
-      [`${playerTeam} Player`, "ELO"].forEach((label) => {
+      [`${playerTeam} Players`, "ELO"].forEach((label) => {
         let th = document.createElement("th");
         th.appendChild(document.createTextNode(label));
         trow.appendChild(th);

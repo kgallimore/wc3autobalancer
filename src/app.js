@@ -7,7 +7,9 @@ const {
   ipcMain,
   ipcRenderer,
   globalShortcut,
+  clipboard,
   dialog,
+  shell,
   Notification,
 } = require("electron");
 require = require("esm")(module);
@@ -19,13 +21,7 @@ const WebSocket = require("ws");
 const path = require("path");
 const Store = require("electron-store");
 const wss = new WebSocket.Server({ port: 8888 });
-const {
-  keyboard,
-  screen,
-  getActiveWindow,
-  clipboard,
-  Key,
-} = require("@nut-tree/nut-js");
+const { keyboard, screen, getActiveWindow, Key } = require("@nut-tree/nut-js");
 const cv = require("opencv4nodejs-prebuilt");
 const robot = require("robotjs");
 const Jimp = require("jimp");
@@ -35,6 +31,7 @@ const store = new Store();
 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
+
 log.info("App starting...");
 
 const excludeHostFromSwap = true;
@@ -52,6 +49,7 @@ var autoHost = {
   type: store.get("autoHost.type") || "off",
   private: store.get("autoHost.private") || false,
   sounds: store.get("autoHost.sounds") || false,
+  increment: store.get("autoHost.increment") || true,
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
@@ -71,9 +69,11 @@ wss.on("connection", function connection(ws) {
     sendStatus("disconnected");
   });
 });
-
 ipcMain.on("toMain", (event, args) => {
   switch (args.messageType) {
+    case "openLogs":
+      shell.openPath(log.transports.file.getFile().path);
+      break;
     case "getMapDirectory":
       dialog
         .showOpenDialog(win, {
@@ -190,7 +190,7 @@ const createWindow = () => {
     width: 600,
     height: 800,
     show: false,
-    icon: path.join(__dirname, "scale.png"),
+    icon: path.join(__dirname, "images/scale.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
@@ -223,7 +223,7 @@ const createWindow = () => {
   });
   win.on("minimize", function (event) {
     event.preventDefault();
-    appIcon = new Tray(path.join(__dirname, "scale.png"));
+    appIcon = new Tray(path.join(__dirname, "images/scale.png"));
 
     appIcon.setContextMenu(contextMenu);
 
@@ -260,7 +260,7 @@ app.on("ready", function () {
     }
   });
   createWindow();
-  autoUpdater.checkForUpdatesAndNotify();
+  //autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on("window-all-closed", () => {
@@ -297,7 +297,11 @@ function handleWSMessage(message) {
   switch (message.messageType) {
     case "typeGameName":
       gameNumber += 1;
-      typeText(autoHost.gameName + " #" + gameNumber.toString(), true);
+      if (autoHost.increment) {
+        typeText(autoHost.gameName + " #" + gameNumber.toString(), true);
+      } else {
+        typeText(autoHost.gameName, true);
+      }
       /*robot.typeStringDelayed(
         autoHost.gameName + " #" + gameNumber.toString(),
         10000
@@ -504,27 +508,30 @@ function finalizeLobby() {
     }
   }
   if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
+    if (autoHost.sounds) {
+      playSound("ready.wav");
+    }
+    log.info("Starting game");
     socket.send(JSON.stringify({ messageType: "start" }));
     setTimeout(tempFindQuit, 60000);
   }
 }
 
 async function findQuit() {
-  if (menuState === "Unknown" || menuState === "Out of Menus") {
-    if (activeWindowWar()) {
-      if (await screen.find("quitHLW.png")) {
+  if (menuState === "In Game") {
+    await activeWindowWar();
+    if (warcraftInFocus) {
+      if (await screen.find("images/quitHLW.png")) {
         log.verbose("Found quit. Press q");
         await keyboard.type("q");
-        //robot.keyTap("q");
         if (autoHost.sounds) {
-          sound.play(path.join(__dirname, "sounds/quit.wav"));
+          playSound("quit.wav");
         }
       } else if (await screen.find("quitNormal.png")) {
         log.verbose("Found quit. Press q");
         await keyboard.type("q");
-        //robot.keyTap("q");
         if (autoHost.sounds) {
-          sound.play(path.join(__dirname, "sounds/quit.wav"));
+          playSound("quit.wav");
         }
       } else {
         log.verbose("Did not find quit, try again in 5 seconds");
@@ -612,27 +619,30 @@ async function activeWindowWar() {
     }).show();
   }
   warcraftInFocus = focused;
-  return focused;
 }
-
 async function typeText(text, hitEnter = false) {
   if (socket) {
-    if (activeWindowWar()) {
-      const oldClipboard = await clipboard.paste();
+    await activeWindowWar();
+    if (warcraftInFocus) {
+      let oldClipboard = clipboard.readText();
       if (hitEnter) {
         await keyboard.type(Key.Enter);
       }
-      clipboard.copy(text).then(
-        keyboard
-          .pressKey(Key.LeftControl, Key.V)
-          .then(keyboard.releaseKey(Key.LeftControl, Key.V))
-          .then(clipboard.copy(oldClipboard))
-          .then(async () => {
-            if (hitEnter) {
-              await keyboard.type(Key.Enter);
-            }
-          })
-      );
+      clipboard.writeText(text);
+      keyboard
+        .pressKey(Key.LeftControl, Key.V)
+        .then(keyboard.releaseKey(Key.LeftControl, Key.V))
+        .then(async () => {
+          clipboard.writeText(oldClipboard);
+        })
+        .then(async () => {
+          if (hitEnter) {
+            await keyboard.type(Key.Enter);
+          }
+        })
+        .catch((err) => {
+          log.error(err);
+        });
     } else {
       setTimeout(typeText.bind(null, text), 3000);
     }
@@ -644,34 +654,50 @@ async function typeText(text, hitEnter = false) {
 
 let quitHLWMat, quitNormalMat;
 async function tempFindQuitHelper(templateMat, targetCoefficient = 0.9) {
-  let pic = robot.screen.capture();
-  const image = new Jimp(pic.width, pic.height);
-  let pos = 0;
-  image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
-    image.bitmap.data[idx + 2] = pic.image.readUInt8(pos++);
-    image.bitmap.data[idx + 1] = pic.image.readUInt8(pos++);
-    image.bitmap.data[idx + 0] = pic.image.readUInt8(pos++);
-    image.bitmap.data[idx + 3] = pic.image.readUInt8(pos++);
-  });
-  await image.writeAsync(`${__dirname}\\tempresolve.png`);
-  const target = await cv.imreadAsync(`${__dirname}\\tempresolve.png`);
-
-  // Match template (the brightest locations indicate the highest match)
-  const matched = target.matchTemplate(templateMat, 5);
-  return matched.minMaxLoc().maxVal >= targetCoefficient;
+  try {
+    let pic = robot.screen.capture();
+    const image = new Jimp(pic.width, pic.height);
+    let pos = 0;
+    image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
+      image.bitmap.data[idx + 2] = pic.image.readUInt8(pos++);
+      image.bitmap.data[idx + 1] = pic.image.readUInt8(pos++);
+      image.bitmap.data[idx + 0] = pic.image.readUInt8(pos++);
+      image.bitmap.data[idx + 3] = pic.image.readUInt8(pos++);
+    });
+    let target;
+    if (!app.isPackaged) {
+      await image.writeAsync(`${__dirname}\\tempresolve.png`);
+      target = await cv.imreadAsync(`${__dirname}\\tempresolve.png`);
+    } else {
+      await image.writeAsync(`${__dirname}\\..\\..\\tempresolve.png`);
+      target = await cv.imreadAsync(`${__dirname}\\..\\..\\tempresolve.png`);
+    }
+    // Match template (the brightest locations indicate the highest match)
+    if (target) {
+      const matched = target.matchTemplate(templateMat, 5);
+      return matched.minMaxLoc().maxVal >= targetCoefficient;
+    } else {
+      log.error("No target image?");
+      return false;
+    }
+  } catch (err) {
+    log.error(err);
+    return false;
+  }
 }
 
 async function tempFindQuit() {
-  if (menuState === "Unknown" || menuState === "Out of Menus") {
-    if (activeWindowWar()) {
+  if (menuState === "In Game") {
+    await activeWindowWar();
+    if (warcraftInFocus) {
+      log.verbose("Looking for quit");
       const foundQuitHLW = await tempFindQuitHelper(quitHLWMat);
       const foundQuitNormal = await tempFindQuitHelper(quitNormalMat);
       if (foundQuitHLW || foundQuitNormal) {
         log.verbose("Found quit. Press q");
         await keyboard.type("q");
-        //robot.keyTap("q");
         if (autoHost.sounds) {
-          sound.play(path.join(__dirname, "sounds/quit.wav"));
+          playSound("quit.wav");
         }
       } else {
         log.verbose("Did not find quit, try again in 5 seconds");
@@ -682,6 +708,29 @@ async function tempFindQuit() {
 }
 
 async function setupMats() {
-  quitHLWMat = await cv.imreadAsync(`${__dirname}\\quitHLW.png`);
-  quitNormalMat = await cv.imreadAsync(`${__dirname}\\quitNormal.png`);
+  try {
+    if (!app.isPackaged) {
+      quitHLWMat = await cv.imreadAsync(`${__dirname}\\images\\quitHLW.png`);
+      quitNormalMat = await cv.imreadAsync(
+        `${__dirname}\\images\\quitNormal.png`
+      );
+    } else {
+      quitHLWMat = await cv.imreadAsync(
+        `${app.getAppPath()}\\..\\..\\images\\quitHLW.png`
+      );
+      quitNormalMat = await cv.imreadAsync(
+        `${app.getAppPath()}\\..\\..\\images\\quitNormal.png`
+      );
+    }
+  } catch (err) {
+    log.error("setupMats: " + err);
+  }
+}
+
+function playSound(file) {
+  if (!app.isPackaged) {
+    sound.play(path.join(__dirname, "sounds\\" + file));
+  } else {
+    sound.play(path.join(app.getAppPath(), "\\..\\..\\sounds\\" + file));
+  }
 }

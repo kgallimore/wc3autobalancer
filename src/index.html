@@ -61,7 +61,7 @@
               </div>
               <div class="col">
                 <div class="d-flex justify-content-center">
-                  <input type="checkbox" class="btn-check" id="autoHostIncrementCheck" disabled checked>
+                  <input type="checkbox" class="btn-check" id="autoHostIncrementCheck" checked>
                   <label for="autoHostIncrementCheck" class="btn btn-outline-primary">Incremental Lobbies</label>
                 </div>
               </div>
@@ -81,6 +81,32 @@
               </div>
             </div>
           </form>
+          <div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Setting</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ELO Lookup</td>
+                  <td>Which resource will be used to look up ELOs. Local and PyroTD are currently unavailable</td>
+                </tr>
+                <tr>
+                  <td>Auto Host</td>
+                  <td><strong>Auto Host Lobbies:</strong> Clicks though menus and creates a lobby of specified game.<br>
+                  <strong>Full Auto Host:</strong> Auto Host Lobbies + moves to any host/spectator slot. Starts the game on full lobby. Will quit the game if this game end screen pops up:
+                <image class="img-fluid" src="images/quitNormal.png"></image></td>
+                </tr>
+                <tr>
+                  <td>Play Sounds</td>
+                  <td>(When full auto hosting) Play sound notifications when game starts or is quit</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -93,6 +119,9 @@
   <div class="d-flex justify-content-center pt-1">
     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#settingsModal">
       Elo / Auto Host Settings
+    </button>
+    <button type="button" class="btn btn-primary" id="logsButton">
+      Open Logs
     </button>
   </div>
   <h4>Menu State: <span id="menuStateLabel">Out of Menus</span></h4>

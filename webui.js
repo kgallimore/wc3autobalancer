@@ -1,17 +1,17 @@
 let webSocket, menusObserver, lobbyObserver;
 let lobby = {};
 let menuState = "Out of Menus";
-let joiningLobby = false;
 let typingGameName = false;
 let autoHost = {
   type: "off",
   private: false,
+  increment: true,
   mapName: "",
   gameName: "",
   eloLookup: "off",
   mapDirectory: ["Download"],
 };
-const testNonPlayersTeam = /((computer)|(creep))/i;
+const testNonPlayersTeam = /((computer)|(creeps)|(summoned))/i;
 const testSpecTeam = /((host)|(spectator)|(observer))/i;
 const testSlotAvailable = /Slot \d+ (Open Slot|Closed)/i;
 const testSlotOpen = /Open/i;
@@ -96,13 +96,21 @@ function mutationsSetup() {
       newMenuState = "In Lobby";
     } else if (document.querySelector("div.ScoreScreen-Table")) {
       newMenuState = "Score Screen";
+    } else if (document.querySelector("div.LoadingScreen")) {
+      newMenuState = "Loading Game";
     } else {
+      sendSocket(
+        "info",
+        "Unknown state: " + document.querySelector("div").innerHTML
+      );
       newMenuState = "Unknown";
     }
     if (newMenuState !== menuState) {
-      joiningLobby = false;
-      typingGameName = false;
-      menuState = newMenuState;
+      if (menuState === "Loading Game" && newMenuState === "Out of Menus") {
+        menuState = "In Game";
+      } else {
+        menuState = newMenuState;
+      }
       sendSocket("menusChange", menuState);
       if (autoHost.type !== "off") {
         switch (newMenuState) {
@@ -142,6 +150,7 @@ function mutationsSetup() {
           moveInLobby();
         }
       } else {
+        typingGameName = false;
         lobby = {};
         if (lobbyObserver) {
           try {
@@ -176,27 +185,32 @@ function clickCustomGames() {
 }
 
 function handleLobby(mutationsList, menusObserver) {
-  let newLobbyData = getLobbyData();
-  if (newLobbyData) {
-    if (JSON.stringify(newLobbyData) !== JSON.stringify(lobby.lobbyData)) {
-      sendSocket("info", "Lobby changed.");
-      lobby.lobbyData = newLobbyData;
-      sendSocket("lobbyUpdate", lobby.lobbyData);
+  if (menuState === "In Lobby") {
+    let newLobbyData = getLobbyData();
+    if (newLobbyData) {
+      if (JSON.stringify(newLobbyData) !== JSON.stringify(lobby.lobbyData)) {
+        sendSocket("info", "Lobby changed.");
+        lobby.lobbyData = newLobbyData;
+        sendSocket("lobbyUpdate", lobby.lobbyData);
+      } else {
+        // Run it one more time just to double check
+        setTimeout(function () {
+          if (menuState === "In Lobby") {
+            newLobbyData = getLobbyData();
+            if (
+              JSON.stringify(newLobbyData) !== JSON.stringify(lobby.lobbyData)
+            ) {
+              sendSocket("info", "Lobby changed.");
+              lobby.lobbyData = newLobbyData;
+              sendSocket("lobbyUpdate", lobby.lobbyData);
+            }
+          }
+        }, 250);
+      }
     } else {
-      sendSocket("info", "Lobby changed but nothing is different");
-      // Run it one more time just to double check
-      setTimeout(function () {
-        newLobbyData = getLobbyData();
-        if (JSON.stringify(newLobbyData) !== JSON.stringify(lobby.lobbyData)) {
-          sendSocket("info", "Lobby changed.");
-          lobby.lobbyData = newLobbyData;
-          sendSocket("lobbyUpdate", lobby.lobbyData);
-        }
-      }, 250);
+      setTimeout(handleLobby, 250);
+      sendSocket("error", e.message + "\n" + e.stack);
     }
-  } else {
-    setTimeout(handleLobby, 250);
-    sendSocket("error", e.message + "\n" + e.stack);
   }
 }
 
@@ -286,13 +300,15 @@ function createLobby() {
         document
           .querySelector("div.CreateGameMenu-CreateButton-Holder")
           .classList.contains("disabled");
-      /*const isValidGameName = testGameName.test(
-        document.querySelector("div.CreateGameMenu-GameName input").value
-      );*/
-      /*var re = new RegExp("^" + autoHost.gameName + "( #\\d*)?$", "g");
+
+      if (autoHost.increment) {
+        var re = new RegExp("^" + autoHost.gameName + "( #\\d*)$", "g");
+      } else {
+        var re = new RegExp("^" + autoHost.gameName + "$", "g");
+      }
       const isValidGameName = document
         .querySelector("div.CreateGameMenu-GameName input")
-        .value.match(re);*/
+        .value.match(re);
       if (
         autoHost.private &&
         document.querySelector("div.CreateGameMenu-PrivateIcon")
@@ -333,12 +349,12 @@ function createLobby() {
           });
       }
       // If the create button is not enabled, focus the game name input and tell the main program to start typing the name
-      else if (isGameNameEmpty) {
-        if (!joiningLobby && !typingGameName) {
-          document.querySelector("div.CreateGameMenu-GameName input").focus();
-          typingGameName = true;
-          sendSocket("typeGameName");
-        }
+      if (isGameNameEmpty && !typingGameName) {
+        document.querySelector("div.CreateGameMenu-GameName input").focus();
+        typingGameName = true;
+        sendSocket("typeGameName");
+      } else if (!isValidGameName && !typingGameName) {
+        sendSocket("info", "Invalid game name. Typing:" + typingGameName);
       }
       // If the map name is correct, input field is set to the correct game name, and create lobby is enabled, click create game
       if (
@@ -347,6 +363,7 @@ function createLobby() {
         ) &&
         !isIncorrectMap &&
         !isGameNameEmpty &&
+        isValidGameName &&
         !createButtonDisabled
       ) {
         typingGameName = false;
@@ -355,7 +372,6 @@ function createLobby() {
             "div.CreateGameMenu-CreateButton-Holder div.Primary-Button-Content"
           )
           .click();
-        joiningLobby = true;
       } else {
         setTimeout(createLobby, 500);
       }
@@ -412,97 +428,102 @@ function getMapData() {
 }
 
 function getLobbyData() {
-  try {
-    let teamList = { playerTeams: {}, otherTeams: {}, specTeams: {} };
-    let allPlayers = [];
-    let openPlayerSlots = 0;
-    let countPlayers = false;
+  if (document.querySelectorAll("div.TeamContainer")) {
     try {
-      document
-        .querySelectorAll("div.TeamContainer")
-        .forEach(function (container) {
-          const teamName =
-            container.querySelector("div.TeamContainer-Name").innerText ||
-            "Team " + (Object.keys(teamList).length + 1).toString();
-          var teamPointer;
-          if (testNonPlayersTeam.test(teamName)) {
-            countPlayers = false;
-            teamList.otherTeams[teamName] = new emptyTeams();
-            teamPointer = teamList.otherTeams[teamName];
-          } else if (testSpecTeam.test(teamName)) {
-            countPlayers = false;
-            teamList.specTeams[teamName] = new emptyTeams();
-            teamPointer = teamList.specTeams[teamName];
-          } else {
-            countPlayers = true;
-            teamList.playerTeams[teamName] = new emptyTeams();
-            teamPointer = teamList.playerTeams[teamName];
-          }
-          if (
-            container.querySelectorAll("div.GameLobby-PlayerRow-Container")
-              .length === 0
-          ) {
-            throw new Error("No players found");
-          }
-          container
-            .querySelectorAll("div.GameLobby-PlayerRow-Container")
-            .forEach(function (playerRow) {
-              if (playerRow.querySelector("div.GameLobby-EmptyRow") == null) {
-                const playerName =
-                  playerRow.querySelector("div.nameTag").innerText;
-                teamPointer.slots.push(playerName);
-                if (playerName === "") {
-                  throw new Error("Player name is empty");
-                }
-                if (!testComputer.test(playerName)) {
-                  teamPointer.players.push(playerName);
-                  if (countPlayers) {
-                    allPlayers.push(playerName);
+      let teamList = { playerTeams: {}, otherTeams: {}, specTeams: {} };
+      let allPlayers = [];
+      let openPlayerSlots = 0;
+      let countPlayers = false;
+      try {
+        document
+          .querySelectorAll("div.TeamContainer")
+          .forEach(function (container) {
+            const teamName =
+              container.querySelector("div.TeamContainer-Name").innerText ||
+              "Team " + (Object.keys(teamList).length + 1).toString();
+            var teamPointer;
+            if (testNonPlayersTeam.test(teamName)) {
+              countPlayers = false;
+              teamList.otherTeams[teamName] = new emptyTeams();
+              teamPointer = teamList.otherTeams[teamName];
+            } else if (testSpecTeam.test(teamName)) {
+              countPlayers = false;
+              teamList.specTeams[teamName] = new emptyTeams();
+              teamPointer = teamList.specTeams[teamName];
+            } else {
+              countPlayers = true;
+              teamList.playerTeams[teamName] = new emptyTeams();
+              teamPointer = teamList.playerTeams[teamName];
+            }
+            if (
+              container.querySelectorAll("div.GameLobby-PlayerRow-Container")
+                .length === 0
+            ) {
+              throw new Error("No players found");
+            }
+            container
+              .querySelectorAll("div.GameLobby-PlayerRow-Container")
+              .forEach(function (playerRow) {
+                if (playerRow.querySelector("div.GameLobby-EmptyRow") == null) {
+                  const playerName =
+                    playerRow.querySelector("div.nameTag").innerText;
+                  teamPointer.slots.push(playerName);
+                  if (playerName === "") {
+                    throw new Error("Player name is empty");
                   }
-                } else {
-                  teamPointer.computers++;
-                }
-              } else if (
-                playerRow.querySelector("div:not([class]), div[class='']")
-              ) {
-                const slotTitle = playerRow
-                  .querySelector("div:not([class]), div[class='']")
-                  .innerText.replace(/(\r\n|\n|\r)/gm, "");
-                if (testSlotOpen.test(slotTitle)) {
-                  teamPointer.openSlots++;
-                  if (countPlayers) {
-                    openPlayerSlots++;
+                  if (!testComputer.test(playerName)) {
+                    teamPointer.players.push(playerName);
+                    if (countPlayers) {
+                      allPlayers.push(playerName);
+                    }
+                  } else {
+                    teamPointer.computers++;
                   }
+                } else if (
+                  playerRow.querySelector("div:not([class]), div[class='']")
+                ) {
+                  const slotTitle = playerRow
+                    .querySelector("div:not([class]), div[class='']")
+                    .innerText.replace(/(\r\n|\n|\r)/gm, "");
+                  if (testSlotOpen.test(slotTitle)) {
+                    teamPointer.openSlots++;
+                    if (countPlayers) {
+                      openPlayerSlots++;
+                    }
+                  } else {
+                    teamPointer.closedSlots++;
+                  }
+                  teamPointer.slots.push(
+                    "Slot " +
+                      (teamPointer.slots.length + 1).toString() +
+                      " " +
+                      slotTitle
+                  );
                 } else {
-                  teamPointer.closedSlots++;
+                  throw new Error("Player row is empty");
                 }
-                teamPointer.slots.push(
-                  "Slot " +
-                    (teamPointer.slots.length + 1).toString() +
-                    " " +
-                    slotTitle
-                );
-              } else {
-                throw new Error("Player row is empty");
-              }
-            });
-        });
+              });
+          });
+      } catch (e) {
+        sendSocket("info", e.message);
+        return false;
+      }
+
+      return {
+        openPlayerSlots: openPlayerSlots,
+        allPlayers: allPlayers,
+        teamList: teamList,
+      };
     } catch (e) {
-      sendSocket("info", e.message);
+      sendSocket("error", e.message + "\n" + e.stack);
       return false;
     }
-    return {
-      openPlayerSlots: openPlayerSlots,
-      allPlayers: allPlayers,
-      teamList: teamList,
-    };
-  } catch (e) {
-    sendSocket("error", e.message + "\n" + e.stack);
+  } else {
     return false;
   }
 }
 
-function sendSocket(messageType = "info", data = messageType) {
+function sendSocket(messageType = "info", data = "") {
   webSocket.send(JSON.stringify({ messageType: messageType, data: data }));
 }
 
