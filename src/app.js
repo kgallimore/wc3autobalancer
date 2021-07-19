@@ -53,6 +53,8 @@ var autoHost = {
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
+  eloAvailable: store.get("autoHost.eloAvailable") || false,
+  eloMapName: store.get("autoHost.eloMapName") || "",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
 var menuState = "Out of Menus";
@@ -110,6 +112,64 @@ ipcMain.on("toMain", (event, args) => {
       if (socket) {
         socket.send(JSON.stringify(args));
       }
+      break;
+    case "autoHostSingle":
+      // If the key is type, and the old value was off, the map or game name may be different
+      if (args.data.key === "type" && autoHost.type === "off") {
+        // If the new map name is different, check to see if ELO data is available
+        if (autoHost.mapName !== args.data.mapName) {
+          autoHost.mapName = args.data.mapName;
+          if (autoHost.eloLookup === "wc3stats") {
+            if (autoHost.mapName.match(/(HLW)/i)) {
+              autoHost.eloMapName = "HLW";
+              autoHost.eloAvailable = true;
+            } else {
+              autoHost.eloMapName = autoHost.mapName
+                .trim()
+                .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
+                .replace(/\s/g, "%20");
+              log.info(
+                "Querying wc3stats to see if ELO data is available for: autoHost.mapName"
+              );
+              log.info(`https://api.wc3stats.com/maps/${autoHost.eloMapName}`);
+              https
+                .get(
+                  `https://api.wc3stats.com/maps/${autoHost.eloMapName}`,
+                  (resp) => {
+                    let dataChunks = "";
+                    resp.on("data", (chunk) => {
+                      dataChunks += chunk;
+                    });
+                    resp.on("end", () => {
+                      const jsonData = JSON.parse(dataChunks);
+                      autoHost.eloAvailable = jsonData.status === "OK";
+                      log.info("Elo data available: " + autoHost.eloAvailable);
+                      if (!autoHost.eloAvailable) {
+                        sendWindow(
+                          "error",
+                          "We couldn't find any ELO data for your map. Please raise an issue on Github if you think there should be."
+                        );
+                      }
+                      // TODO check variants, seasons, modes, and ladders
+                      /*if (lobbyData.eloAvailable) {
+                  jsonData.body.variants.forEach((variant) => {
+                    variant.stats.forEach((stats) => {});
+                  });
+                }*/
+                    });
+                  }
+                )
+                .on("error", (err) => {
+                  autoHost.eloAvailable = false;
+                  log.error("Error: " + err.message);
+                });
+            }
+          }
+        }
+        autoHost.gameName = args.data.gameName;
+      }
+      autoHost[args.data.key] = args.data.value;
+      store.set("autoHost", autoHost);
       break;
     case "getElementPos":
       if (socket) {
@@ -344,44 +404,54 @@ function handleWSMessage(message) {
 function processMapData(lobbyData) {
   if (menuState === "In Lobby") {
     lobby.mapData = lobbyData.mapData;
-    const mapName = lobby.mapData.mapName;
-    if (!lobby.eloMapName) {
-      if (lobby.mapData.mapName.match(/(HLW)/i)) {
-        lobby.eloMapName = "HLW";
-      } else {
-        lobby.eloMapName = mapName
-          .trim()
-          .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
-          .replace(/\s/g, "%20");
-      }
-    }
-    if (autoHost.eloLookup === "wc3stats") {
-      https
-        .get(`https://api.wc3stats.com/maps/${lobby.eloMapName}`, (resp) => {
-          let dataChunks = "";
-          // A chunk of data has been received.
-          resp.on("data", (chunk) => {
-            dataChunks += chunk;
-          });
-          // The whole response has been received. Print out the result.
-          resp.on("end", () => {
-            const jsonData = JSON.parse(dataChunks);
-            lobby.eloAvailable = jsonData.status === "OK";
-            lobby.eloList = {};
-            lobby.lookingUpELO = new Set();
-            sendWindow("lobbyData", lobby);
-            processLobby(lobbyData.lobbyData);
-            // TODO check variants, seasons, modes, and ladders
-            /*if (lobbyData.eloAvailable) {
-            jsonData.body.variants.forEach((variant) => {
-              variant.stats.forEach((stats) => {});
+    if (eloLookup !== "off") {
+      lobby.eloList = {};
+      lobby.lookingUpELO = new Set();
+      const mapName = lobby.mapData.mapName;
+      if (autoHost.type === "off") {
+        if (!lobby.eloMapName) {
+          if (lobby.mapData.mapName.match(/(HLW)/i)) {
+            lobby.eloMapName = "HLW";
+          } else {
+            lobby.eloMapName = mapName
+              .trim()
+              .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
+              .replace(/\s/g, "%20");
+          }
+        }
+        if (autoHost.eloLookup === "wc3stats") {
+          https
+            .get(
+              `https://api.wc3stats.com/maps/${lobby.eloMapName}`,
+              (resp) => {
+                let dataChunks = "";
+                resp.on("data", (chunk) => {
+                  dataChunks += chunk;
+                });
+                resp.on("end", () => {
+                  const jsonData = JSON.parse(dataChunks);
+                  lobby.eloAvailable = jsonData.status === "OK";
+                  sendWindow("lobbyData", lobby);
+                  processLobby(lobbyData.lobbyData);
+                  // TODO check variants, seasons, modes, and ladders
+                  /*if (lobbyData.eloAvailable) {
+                jsonData.body.variants.forEach((variant) => {
+                  variant.stats.forEach((stats) => {});
+                });
+              }*/
+                });
+              }
+            )
+            .on("error", (err) => {
+              log.error("Error: " + err.message);
             });
-          }*/
-          });
-        })
-        .on("error", (err) => {
-          log.error("Error: " + err.message);
-        });
+        }
+      } else {
+        lobby.eloAvailable = autoHost.eloAvailable;
+        lobby.eloMapName = autoHost.eloMapName;
+      }
+    } else {
+      lobby.eloAvailable = false;
     }
   }
 }
@@ -517,30 +587,6 @@ function finalizeLobby() {
   }
 }
 
-async function findQuit() {
-  if (menuState === "In Game") {
-    await activeWindowWar();
-    if (warcraftInFocus) {
-      if (await screen.find("images/quitHLW.png")) {
-        log.verbose("Found quit. Press q");
-        await keyboard.type("q");
-        if (autoHost.sounds) {
-          playSound("quit.wav");
-        }
-      } else if (await screen.find("quitNormal.png")) {
-        log.verbose("Found quit. Press q");
-        await keyboard.type("q");
-        if (autoHost.sounds) {
-          playSound("quit.wav");
-        }
-      } else {
-        log.verbose("Did not find quit, try again in 5 seconds");
-      }
-    }
-    setTimeout(findQuit, 5000);
-  }
-}
-
 function swapHelper(lobbyData) {
   let swapsFromTeam1 = [];
   let swapsFromTeam2 = [];
@@ -601,6 +647,7 @@ function sendWindow(messageType, message) {
     data: message,
   });
 }
+
 function sendSocket(messageType = "info", data = "none") {
   if (socket) {
     socket.send(JSON.stringify({ messageType: messageType, data: data }));
@@ -620,6 +667,7 @@ async function activeWindowWar() {
   }
   warcraftInFocus = focused;
 }
+
 async function typeText(text, hitEnter = false) {
   if (socket) {
     await activeWindowWar();
@@ -646,6 +694,38 @@ async function typeText(text, hitEnter = false) {
     } else {
       setTimeout(typeText.bind(null, text), 3000);
     }
+  }
+}
+
+function playSound(file) {
+  if (!app.isPackaged) {
+    sound.play(path.join(__dirname, "sounds\\" + file));
+  } else {
+    sound.play(path.join(app.getAppPath(), "\\..\\..\\sounds\\" + file));
+  }
+}
+
+async function findQuit() {
+  if (menuState === "In Game") {
+    await activeWindowWar();
+    if (warcraftInFocus) {
+      if (await screen.find("images/quitHLW.png")) {
+        log.verbose("Found quit. Press q");
+        await keyboard.type("q");
+        if (autoHost.sounds) {
+          playSound("quit.wav");
+        }
+      } else if (await screen.find("quitNormal.png")) {
+        log.verbose("Found quit. Press q");
+        await keyboard.type("q");
+        if (autoHost.sounds) {
+          playSound("quit.wav");
+        }
+      } else {
+        log.verbose("Did not find quit, try again in 5 seconds");
+      }
+    }
+    setTimeout(findQuit, 5000);
   }
 }
 
@@ -723,13 +803,5 @@ async function setupMats() {
     }
   } catch (err) {
     log.error("setupMats: " + err);
-  }
-}
-
-function playSound(file) {
-  if (!app.isPackaged) {
-    sound.play(path.join(__dirname, "sounds\\" + file));
-  } else {
-    sound.play(path.join(app.getAppPath(), "\\..\\..\\sounds\\" + file));
   }
 }

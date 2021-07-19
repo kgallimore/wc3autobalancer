@@ -24,7 +24,7 @@
             <div class="row">
               <div class="col">
                 <label for="eloLookup" class="form-label">ELO Lookup</label>
-                <select id="eloLookup" class="form-select">
+                <select id="eloLookup" class="form-select" data-autoHost-key="eloLookup">
                   <option value="off" selected>Disabled</option>
                   <option value="wc3stats">wc3stats.com</option>
                   <option value="pyrotd" disabled>PyroTDLeague</option>
@@ -33,7 +33,7 @@
               </div>
               <div class="col">
                 <label for="autoHostState" class="form-label">Auto Host</label>
-                <select id="autoHostState" class="form-select">
+                <select id="autoHostState" class="form-select" data-autoHost-key="type">
                   <option value="off" selected>Disabled</option>
                   <option value="autoHost">Auto Host Lobbies</option>
                   <option value="ghostHost">Full Auto Host</option>
@@ -44,24 +44,24 @@
               <div class="col">
                 <label for="autoHostMapName" class="form-label">Map Name</label>
                 <input type="text" class="form-control auto-host-disabled" id="autoHostMapName"
-                  placeholder="Map name (exact match, no extension, no color)" minlength="3">
+                  placeholder="Map name (exact match, no extension, no color)" minlength="3" data-autoHost-key="mapName">
               </div>
               <div class="col">
                 <label for="autoHostGameName" class="form-label">Game Name</label>
                 <input type="text" class="form-control auto-host-disabled" id="autoHostGameName" placeholder="Game Name"
-                  maxlength="27" minlength="3">
+                  maxlength="27" minlength="3" data-autoHost-key="gameName">
               </div>
             </div>
             <div class="row">
               <div class="col">
                 <div class="d-flex justify-content-center">
-                  <input type="checkbox" class="btn-check" id="autoHostPrivateCheck">
+                  <input type="checkbox" class="btn-check" id="autoHostPrivateCheck" data-autoHost-key="private">
                   <label for="autoHostPrivateCheck" class="btn btn-outline-primary">Private Lobbies</label>
                 </div>
               </div>
               <div class="col">
                 <div class="d-flex justify-content-center">
-                  <input type="checkbox" class="btn-check" id="autoHostIncrementCheck" checked>
+                  <input type="checkbox" class="btn-check" id="autoHostIncrementCheck" data-autoHost-key="increment">
                   <label for="autoHostIncrementCheck" class="btn btn-outline-primary">Incremental Lobbies</label>
                 </div>
               </div>
@@ -69,7 +69,7 @@
             <div class="row">
               <div class="col">
                 <div class="d-flex justify-content-center">
-                  <input type="checkbox" class="btn-check" id="autoHostSoundsCheck">
+                  <input type="checkbox" class="btn-check" id="autoHostSoundsCheck" data-autoHost-key="sounds">
                   <label for="autoHostSoundsCheck" class="btn btn-outline-primary">Sound Notifications</label>
                 </div>
               </div>

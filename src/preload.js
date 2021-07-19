@@ -11,8 +11,11 @@ var autoHost = {
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
+  eloAvailable: store.get("autoHost.eloAvailable") || false,
+  eloMapName: store.get("autoHost.eloMapName") || "",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld("api", {
@@ -55,28 +58,27 @@ window.addEventListener("DOMContentLoaded", () => {
   autoHostGameName.value = autoHost.gameName;
   mapDirectorySpan.innerText = "\\" + autoHost.mapDirectory.join("\\");
 
-  autoHostState.addEventListener("change", updateAutoHost);
-  autoHostPrivateCheck.addEventListener("change", updateAutoHost);
-  eloLookupState.addEventListener("change", updateAutoHost);
-  autoHostSoundsCheck.addEventListener("change", updateAutoHost);
-  autoHostIncrementCheck.addEventListener("change", updateAutoHost);
+  autoHostState.addEventListener("change", updateAutoHostSingle);
+  autoHostPrivateCheck.addEventListener("change", updateAutoHostSingle);
+  eloLookupState.addEventListener("change", updateAutoHostSingle);
+  autoHostSoundsCheck.addEventListener("change", updateAutoHostSingle);
+  autoHostIncrementCheck.addEventListener("change", updateAutoHostSingle);
 
   updateDisabledState(autoHost.type !== "off");
 
-  function updateAutoHost(event) {
+  function updateAutoHostSingle(event) {
     updateDisabledState(autoHostState.value !== "off");
-
+    const value =
+      event.target.nodeName === "INPUT" && event.target.type === "checkbox"
+        ? event.target.checked
+        : event.target.value;
     ipcRenderer.send("toMain", {
-      messageType: "autoHost",
+      messageType: "autoHostSingle",
       data: {
-        type: autoHostState.value,
-        private: autoHostPrivateCheck.checked,
-        sounds: autoHostSoundsCheck.checked,
-        increment: autoHostIncrementCheck.checked,
+        key: event.target.getAttribute("data-autoHost-key"),
+        value: value,
         mapName: autoHostMapName.value,
         gameName: autoHostGameName.value,
-        eloLookup: eloLookupState.value,
-        mapDirectory: store.get("autoHost.mapDirectory"),
       },
     });
   }
