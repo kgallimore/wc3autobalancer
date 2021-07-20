@@ -64,30 +64,73 @@ window.addEventListener("DOMContentLoaded", () => {
   autoHostSoundsCheck.addEventListener("change", updateAutoHostSingle);
   autoHostIncrementCheck.addEventListener("change", updateAutoHostSingle);
 
-  updateDisabledState(autoHost.type !== "off");
+  autoHostMapName.addEventListener("keyup", updateName);
+  autoHostGameName.addEventListener("keyup", updateName);
 
   function updateAutoHostSingle(event) {
-    updateDisabledState(autoHostState.value !== "off");
     const value =
       event.target.nodeName === "INPUT" && event.target.type === "checkbox"
         ? event.target.checked
         : event.target.value;
+    const key = event.target.getAttribute("data-autoHost-key");
+    autoHost[key] = value;
     ipcRenderer.send("toMain", {
       messageType: "autoHostSingle",
       data: {
-        key: event.target.getAttribute("data-autoHost-key"),
+        key: key,
         value: value,
-        mapName: autoHostMapName.value,
-        gameName: autoHostGameName.value,
       },
     });
+    if (event.target.getAttribute("data-autoHost-key") === "type") {
+      document.getElementById("autoHostSettings").style.display =
+        value === "off" ? "none" : "block";
+    }
   }
+
+  function updateName(event) {
+    if (event.key === "Enter") {
+      sendNames();
+    } else {
+      document.getElementById("saveNameButton").style.display = "block";
+    }
+  }
+
+  function sendNames() {
+    if (autoHostMapName.value !== autoHost.mapName) {
+      ipcRenderer.send("toMain", {
+        messageType: "autoHostSingle",
+        data: {
+          key: "mapName",
+          value: autoHostMapName.value,
+        },
+      });
+    }
+    if (autoHostGameName.value !== autoHost.gameName) {
+      ipcRenderer.send("toMain", {
+        messageType: "autoHostSingle",
+        data: {
+          key: "gameName",
+          value: autoHostGameName.value,
+        },
+      });
+    }
+
+    document.getElementById("saveNameButton").style.display = "none";
+  }
+
+  document
+    .getElementById("saveNameButton")
+    .addEventListener("click", sendNames);
+
+  document.getElementById("autoHostSettings").style.display =
+    autoHost.type === "off" ? "none" : "block";
 
   document
     .getElementById("autoHostMapDirectory")
     .addEventListener("click", function () {
       ipcRenderer.send("toMain", { messageType: "getMapDirectory" });
     });
+
   document.getElementById("logsButton").addEventListener("click", function () {
     ipcRenderer.send("toMain", {
       messageType: "openLogs",
@@ -98,12 +141,3 @@ window.addEventListener("DOMContentLoaded", () => {
     console.log(`${dependency}-version`, process.versions[dependency]);
   }
 });
-function updateDisabledState(autoHostEnabled) {
-  document.querySelectorAll("input.auto-host-enabled").forEach((element) => {
-    element.disabled = !autoHostEnabled;
-  });
-
-  document.querySelectorAll("input.auto-host-disabled").forEach((element) => {
-    element.disabled = autoHostEnabled;
-  });
-}

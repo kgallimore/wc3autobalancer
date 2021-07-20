@@ -17,7 +17,7 @@ const testSlotAvailable = /Slot \d+ (Open Slot|Closed)/i;
 const testSlotOpen = /Open/i;
 const testComputer = /(Computer \(\S+\))/i;
 const testGameName = / #\d+$/;
-const version = "1.3.1";
+const version = "1.4.0";
 
 function emptyTeams() {
   this.slots = [];
@@ -31,6 +31,7 @@ function wsSetup() {
   webSocket = new WebSocket("ws://127.0.0.1:8888");
   webSocket.onopen = function (event) {
     sendSocket("info", "Connected. Hello! I am version: " + version);
+    sendSocket("menusChange", menuState);
     if (lobby && Object.keys(lobby).length > 0) {
       sendSocket("lobbyData", lobby);
     }
@@ -42,6 +43,9 @@ function wsSetup() {
     const data = JSON.parse(event.data);
 
     switch (data.messageType) {
+      case "doneTyping":
+        typingGameName = false;
+        break;
       case "lobby":
         lobby = getLobbyData();
         if (lobby) {
@@ -102,7 +106,7 @@ function mutationsSetup() {
     } else {
       sendSocket(
         "info",
-        "Unknown state: " // + document.querySelector("div").innerHTML
+        "Unknown state" // + document.querySelector("div").innerHTML
       );
       newMenuState = "Unknown";
     }
@@ -375,7 +379,6 @@ function createLobby() {
         isValidGameName &&
         !createButtonDisabled
       ) {
-        typingGameName = false;
         document
           .querySelector(
             "div.CreateGameMenu-CreateButton-Holder div.Primary-Button-Content"

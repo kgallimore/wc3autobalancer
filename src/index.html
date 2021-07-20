@@ -21,66 +21,86 @@
         </div>
         <div class="modal-body">
           <form name="autoHostForm" class="p-2">
-            <div class="row">
-              <div class="col">
-                <label for="eloLookup" class="form-label">ELO Lookup</label>
-                <select id="eloLookup" class="form-select" data-autoHost-key="eloLookup">
-                  <option value="off" selected>Disabled</option>
-                  <option value="wc3stats">wc3stats.com</option>
-                  <option value="pyrotd" disabled>PyroTDLeague</option>
-                  <option value="local" disabled>Local</option>
-                </select>
-              </div>
-              <div class="col">
-                <label for="autoHostState" class="form-label">Auto Host</label>
-                <select id="autoHostState" class="form-select" data-autoHost-key="type">
-                  <option value="off" selected>Disabled</option>
-                  <option value="autoHost">Auto Host Lobbies</option>
-                  <option value="ghostHost">Full Auto Host</option>
-                </select>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col">
-                <label for="autoHostMapName" class="form-label">Map Name</label>
-                <input type="text" class="form-control auto-host-disabled" id="autoHostMapName"
-                  placeholder="Map name (exact match, no extension, no color)" minlength="3"
-                  data-autoHost-key="mapName">
-              </div>
-              <div class="col">
-                <label for="autoHostGameName" class="form-label">Game Name</label>
-                <input type="text" class="form-control auto-host-disabled" id="autoHostGameName" placeholder="Game Name"
-                  maxlength="27" minlength="3" data-autoHost-key="gameName">
-              </div>
-            </div>
-            <div class="row">
-              <div class="col">
-                <div class="d-flex justify-content-center">
-                  <input type="checkbox" class="btn-check" id="autoHostPrivateCheck" data-autoHost-key="private">
-                  <label for="autoHostPrivateCheck" class="btn btn-outline-primary">Private Lobbies</label>
+            <div class="container">
+              <div class="row">
+                <div class="col">
+                  <label for="eloLookup" class="form-label">ELO Lookup</label>
+                  <select id="eloLookup" class="form-select" data-autoHost-key="eloLookup">
+                    <option value="off" selected>Disabled</option>
+                    <option value="wc3stats">wc3stats.com</option>
+                    <option value="pyrotd" disabled>PyroTDLeague</option>
+                    <option value="local" disabled>Local</option>
+                  </select>
+                </div>
+                <div class="col">
+                  <label for="autoHostState" class="form-label">Auto Host</label>
+                  <select id="autoHostState" class="form-select" data-autoHost-key="type">
+                    <option value="off" selected>Disabled</option>
+                    <option value="autoHost">Auto Host Lobbies</option>
+                    <option value="ghostHost">Full Auto Host</option>
+                  </select>
                 </div>
               </div>
-              <div class="col">
-                <div class="d-flex justify-content-center">
-                  <input type="checkbox" class="btn-check" id="autoHostIncrementCheck" data-autoHost-key="increment">
-                  <label for="autoHostIncrementCheck" class="btn btn-outline-primary">Incremental Lobbies</label>
+              <div id="autoHostSettings" class="border m-2">
+                <div class="row">
+                  <div class="col d-flex justify-content-center">Auto Host Settings</div>
+                </div>
+                <div class="row p-2">
+                  <div class="col">
+                    <div class="d-flex justify-content-center">
+                      <input type="checkbox" class="btn-check" id="autoHostPrivateCheck" data-autoHost-key="private">
+                      <label for="autoHostPrivateCheck" class="btn btn-outline-primary">Private Lobbies</label>
+                    </div>
+                  </div>
+                  <div class="col">
+                    <div class="d-flex justify-content-center">
+                      <input type="checkbox" class="btn-check" id="autoHostIncrementCheck"
+                        data-autoHost-key="increment">
+                      <label for="autoHostIncrementCheck" class="btn btn-outline-primary">Incremental Lobbies</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row p-2">
+                  <div class="col">
+                    <div class="d-flex justify-content-center">
+                      <input type="checkbox" class="btn-check" id="autoHostSoundsCheck" data-autoHost-key="sounds">
+                      <label for="autoHostSoundsCheck" class="btn btn-outline-primary">Sound Notifications</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row p-2">
+                  <div class="col">
+                    <label for="autoHostMapName" class="form-label">Map Name</label>
+                    <input type="text" class="form-control" id="autoHostMapName"
+                      placeholder="Map name (exact match, no extension, no color)" minlength="3"
+                      data-autoHost-key="mapName">
+                  </div>
+                </div>
+                <div class="row p-2">
+                  <div class="col">
+                    <label for="autoHostGameName" class="form-label">Game Name</label>
+                    <input type="text" class="form-control" id="autoHostGameName"
+                      placeholder="Game Name" maxlength="27" minlength="3" data-autoHost-key="gameName">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col">
+                    <div class="d-flex justify-content-center">
+
+                    <button id="saveNameButton" style="display:none" type="button" class="btn btn-primary" data-autoHost-action="save">Save
+                      Names</button>
+                      </div>
+                  </div>
+                </div>
+                <div class="row pt-4">
+                  <div class="col">
+                    <button type="button" class="btn btn-primary" id="autoHostMapDirectory">Set Map directory</button>
+                    Current Map Directory: <span id="mapDirectorySpan"></span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="row">
-              <div class="col">
-                <div class="d-flex justify-content-center">
-                  <input type="checkbox" class="btn-check" id="autoHostSoundsCheck" data-autoHost-key="sounds">
-                  <label for="autoHostSoundsCheck" class="btn btn-outline-primary">Sound Notifications</label>
-                </div>
-              </div>
-            </div>
-            <div class="row pt-4">
-              <div class="col">
-                <button type="button" class="btn btn-primary" id="autoHostMapDirectory">Set Map directory</button>
-                Current Map Directory: <span id="mapDirectorySpan"></span>
-              </div>
-            </div>
+
           </form>
           <div>
             <table class="table">
@@ -91,6 +111,15 @@
                 </tr>
               </thead>
               <tbody>
+                <tr>
+                  <td>Map Name</td>
+                  <td>This setting needs to be set to what the map name is in game.</td>
+                </tr>
+                <tr>
+                  <td>Map Directory</td>
+                  <td>This needs to be set to the maps directory. <strong>It will NOT fill in the map name since file
+                      name =/= map name.</strong></td>
+                </tr>
                 <tr>
                   <td>ELO Lookup</td>
                   <td>Which resource will be used to look up ELOs. Local and PyroTD are currently unavailable</td>
@@ -105,7 +134,9 @@
                 </tr>
                 <tr>
                   <td>Play Sounds</td>
-                  <td>(When full auto hosting) Play sound notifications when game starts or is quit</td>
+                  <td><strong>Auto Host Lobbies:</strong> Play a sound notification when lobby is full<br>
+                    <strong>Full Auto Host:</strong> Play sound notifications when game starts or is quit
+                  </td>
                 </tr>
               </tbody>
             </table>

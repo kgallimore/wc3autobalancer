@@ -20,7 +20,6 @@ const https = require("https");
 const WebSocket = require("ws");
 const path = require("path");
 const Store = require("electron-store");
-const wss = new WebSocket.Server({ port: 8888 });
 const { keyboard, screen, getActiveWindow, Key } = require("@nut-tree/nut-js");
 const cv = require("opencv4nodejs-prebuilt");
 const robot = require("robotjs");
@@ -43,6 +42,8 @@ var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
 var lobby = {};
 var warcraftInFocus = true;
+var typingGameName = false;
+var wss;
 // After I stop changing these values around I can just get the whole dict
 //var autoHost = store.get("autoHost")
 var autoHost = {
@@ -58,19 +59,7 @@ var autoHost = {
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
 var menuState = "Out of Menus";
-wss.on("connection", function connection(ws) {
-  log.info("Connection");
-  socket = ws;
-  sendSocket("autoHost", autoHost);
-  sendStatus("connected");
-  ws.on("message", handleWSMessage);
-  ws.on("close", function close() {
-    log.warn("Socket closed");
-    socket = null;
-    sendProgress();
-    sendStatus("disconnected");
-  });
-});
+
 ipcMain.on("toMain", (event, args) => {
   switch (args.messageType) {
     case "openLogs":
@@ -114,59 +103,54 @@ ipcMain.on("toMain", (event, args) => {
       }
       break;
     case "autoHostSingle":
-      // If the key is type, and the old value was off, the map or game name may be different
-      if (args.data.key === "type" && autoHost.type === "off") {
-        // If the new map name is different, check to see if ELO data is available
-        if (autoHost.mapName !== args.data.mapName) {
-          autoHost.mapName = args.data.mapName;
-          if (autoHost.eloLookup === "wc3stats") {
-            if (autoHost.mapName.match(/(HLW)/i)) {
-              autoHost.eloMapName = "HLW";
-              autoHost.eloAvailable = true;
-            } else {
-              autoHost.eloMapName = autoHost.mapName
-                .trim()
-                .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
-                .replace(/\s/g, "%20");
-              log.info(
-                "Querying wc3stats to see if ELO data is available for: autoHost.mapName"
-              );
-              log.info(`https://api.wc3stats.com/maps/${autoHost.eloMapName}`);
-              https
-                .get(
-                  `https://api.wc3stats.com/maps/${autoHost.eloMapName}`,
-                  (resp) => {
-                    let dataChunks = "";
-                    resp.on("data", (chunk) => {
-                      dataChunks += chunk;
-                    });
-                    resp.on("end", () => {
-                      const jsonData = JSON.parse(dataChunks);
-                      autoHost.eloAvailable = jsonData.status === "OK";
-                      log.info("Elo data available: " + autoHost.eloAvailable);
-                      if (!autoHost.eloAvailable) {
-                        sendWindow(
-                          "error",
-                          "We couldn't find any ELO data for your map. Please raise an issue on Github if you think there should be."
-                        );
-                      }
-                      // TODO check variants, seasons, modes, and ladders
-                      /*if (lobbyData.eloAvailable) {
+      if (args.data.key === "mapName") {
+        autoHost.mapName = args.data.value;
+        if (autoHost.eloLookup === "wc3stats") {
+          if (autoHost.mapName.match(/(HLW)/i)) {
+            autoHost.eloMapName = "HLW";
+            autoHost.eloAvailable = true;
+          } else {
+            autoHost.eloMapName = autoHost.mapName
+              .trim()
+              .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
+              .replace(/\s/g, "%20");
+            log.info(
+              "Querying wc3stats to see if ELO data is available for: autoHost.mapName"
+            );
+            log.info(`https://api.wc3stats.com/maps/${autoHost.eloMapName}`);
+            https
+              .get(
+                `https://api.wc3stats.com/maps/${autoHost.eloMapName}`,
+                (resp) => {
+                  let dataChunks = "";
+                  resp.on("data", (chunk) => {
+                    dataChunks += chunk;
+                  });
+                  resp.on("end", () => {
+                    const jsonData = JSON.parse(dataChunks);
+                    autoHost.eloAvailable = jsonData.status === "OK";
+                    log.info("Elo data available: " + autoHost.eloAvailable);
+                    if (!autoHost.eloAvailable) {
+                      sendWindow(
+                        "error",
+                        "We couldn't find any ELO data for your map. Please raise an issue on Github if you think there should be."
+                      );
+                    }
+                    // TODO check variants, seasons, modes, and ladders
+                    /*if (lobbyData.eloAvailable) {
                   jsonData.body.variants.forEach((variant) => {
                     variant.stats.forEach((stats) => {});
                   });
                 }*/
-                    });
-                  }
-                )
-                .on("error", (err) => {
-                  autoHost.eloAvailable = false;
-                  log.error("Error: " + err.message);
-                });
-            }
+                  });
+                }
+              )
+              .on("error", (err) => {
+                autoHost.eloAvailable = false;
+                log.error("Error: " + err.message);
+              });
           }
         }
-        autoHost.gameName = args.data.gameName;
       }
       autoHost[args.data.key] = args.data.value;
       if (socket) {
@@ -304,6 +288,20 @@ const createWindow = () => {
 
 app.on("ready", function () {
   log.info("App ready");
+  wss = new WebSocket.Server({ port: 8888 });
+  wss.on("connection", function connection(ws) {
+    log.info("Connection");
+    socket = ws;
+    sendSocket("autoHost", autoHost);
+    sendStatus("connected");
+    ws.on("message", handleWSMessage);
+    ws.on("close", function close() {
+      log.warn("Socket closed");
+      socket = null;
+      sendProgress();
+      sendStatus("disconnected");
+    });
+  });
   setupMats();
   globalShortcut.register("Alt+CommandOrControl+I", () => {
     if (socket) {
@@ -363,11 +361,13 @@ async function handleWSMessage(message) {
   switch (message.messageType) {
     case "typeGameName":
       gameNumber += 1;
+
       if (autoHost.increment) {
         await typeText(autoHost.gameName + " #" + gameNumber.toString(), true);
       } else {
         await typeText(autoHost.gameName, true);
       }
+      sendSocket("doneTyping");
       /*robot.typeStringDelayed(
         autoHost.gameName + " #" + gameNumber.toString(),
         10000
@@ -604,23 +604,27 @@ async function finalizeLobby() {
     }
   }
   // Wait a quarter second to make sure no one left
-  setTimeout(async () => {
-    if (lobbyIsReady()) {
-      if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
-        sendSocket("sendChat");
-        await typeText(
-          "AutoHost functionality provided by WC3 Auto Balancer.",
-          true
-        );
-        if (autoHost.sounds) {
-          playSound("ready.wav");
+  if (lobby.mapData.isHost) {
+    if (autoHost.type === "ghostHost") {
+      setTimeout(async () => {
+        if (lobbyIsReady()) {
+          sendSocket("sendChat");
+          await typeText(
+            "AutoHost functionality provided by WC3 Auto Balancer.",
+            true
+          );
+          if (autoHost.sounds) {
+            playSound("ready.wav");
+          }
+          log.info("Starting game");
+          socket.send(JSON.stringify({ messageType: "start" }));
+          setTimeout(tempFindQuit, 60000);
         }
-        log.info("Starting game");
-        socket.send(JSON.stringify({ messageType: "start" }));
-        setTimeout(tempFindQuit, 60000);
-      }
+      }, 250);
+    } else if (autoHost.type === "autoHost" && autoHost.sounds) {
+      playSound("ready.wav");
     }
-  }, 250);
+  }
 }
 
 function swapHelper(lobbyData) {
