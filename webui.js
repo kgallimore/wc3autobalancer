@@ -17,6 +17,7 @@ const testSlotAvailable = /Slot \d+ (Open Slot|Closed)/i;
 const testSlotOpen = /Open/i;
 const testComputer = /(Computer \(\S+\))/i;
 const testGameName = / #\d+$/;
+const version = "1.3.1";
 
 function emptyTeams() {
   this.slots = [];
@@ -29,7 +30,7 @@ function emptyTeams() {
 function wsSetup() {
   webSocket = new WebSocket("ws://127.0.0.1:8888");
   webSocket.onopen = function (event) {
-    sendSocket("info", "Connected. Hello!");
+    sendSocket("info", "Connected. Hello! I am version: " + version);
     if (lobby && Object.keys(lobby).length > 0) {
       sendSocket("lobbyData", lobby);
     }
@@ -101,7 +102,7 @@ function mutationsSetup() {
     } else {
       sendSocket(
         "info",
-        "Unknown state: " + document.querySelector("div").innerHTML
+        "Unknown state: " // + document.querySelector("div").innerHTML
       );
       newMenuState = "Unknown";
     }
@@ -234,23 +235,26 @@ function moveInLobby() {
         lobby.lobbyData &&
         Object.keys(lobby.lobbyData.teamList.specTeams).length > 0
       ) {
-        Object.keys(lobby.lobbyData.teamList.specTeams).forEach(function (
+        Object.keys(lobby.lobbyData.teamList.specTeams).some(function (
           teamName
         ) {
           if (lobby.lobbyData.teamList.specTeams[teamName].openSlots > 0) {
-            document
-              .querySelectorAll("div.TeamContainer-Name")
-              .forEach((teamNameDiv) => {
-                if (
-                  teamNameDiv.innerText
-                    .toLowerCase()
-                    .replace(/(\r\n|\n|\r)/gm, "") === teamName.toLowerCase()
-                ) {
+            const teamContainers = document.querySelectorAll(
+              "div.TeamContainer-Name"
+            );
+            return Array.from(teamContainers).some((teamNameDiv) => {
+              if (
+                teamNameDiv.innerText
+                  .toLowerCase()
+                  .replace(/(\r\n|\n|\r)/gm, "") === teamName.toLowerCase()
+              ) {
+                sendSocket("info", teamNameDiv.innerText);
+                setTimeout(function () {
                   teamNameDiv.click();
-
-                  return;
-                }
-              });
+                }, 250);
+                return true;
+              }
+            });
           }
         });
       }
@@ -485,16 +489,16 @@ function getLobbyData() {
                     teamPointer.computers++;
                   }
                 } else if (
-                  (lobby.isHost &&
+                  (lobby.mapData.isHost &&
                     playerRow.querySelector(
                       "div:not([class]), div[class='']"
                     )) ||
-                  (!lobby.isHost &&
+                  (!lobby.mapData.isHost &&
                     playerRow.querySelector(
                       "div[class='GameLobby-EmptyRow-Button']"
                     ))
                 ) {
-                  let slotElement = lobby.isHost
+                  let slotElement = lobby.mapData.isHost
                     ? playerRow.querySelector("div:not([class]), div[class='']")
                     : playerRow.querySelector(
                         "div[class='GameLobby-EmptyRow-Button']"
@@ -518,7 +522,7 @@ function getLobbyData() {
                       slotTitle
                   );
                 } else {
-                  throw new Error("Player row is empty");
+                  throw new Error(teamName + " player row is empty");
                 }
               });
           });
