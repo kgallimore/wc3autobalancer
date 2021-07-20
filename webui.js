@@ -485,11 +485,24 @@ function getLobbyData() {
                     teamPointer.computers++;
                   }
                 } else if (
-                  playerRow.querySelector("div:not([class]), div[class='']")
+                  (lobby.isHost &&
+                    playerRow.querySelector(
+                      "div:not([class]), div[class='']"
+                    )) ||
+                  (!lobby.isHost &&
+                    playerRow.querySelector(
+                      "div[class='GameLobby-EmptyRow-Button']"
+                    ))
                 ) {
-                  const slotTitle = playerRow
-                    .querySelector("div:not([class]), div[class='']")
-                    .innerText.replace(/(\r\n|\n|\r)/gm, "");
+                  let slotElement = lobby.isHost
+                    ? playerRow.querySelector("div:not([class]), div[class='']")
+                    : playerRow.querySelector(
+                        "div[class='GameLobby-EmptyRow-Button']"
+                      );
+                  const slotTitle = slotElement.innerText.replace(
+                    /(\r\n|\n|\r)/gm,
+                    ""
+                  );
                   if (testSlotOpen.test(slotTitle)) {
                     teamPointer.openSlots++;
                     if (countPlayers) {

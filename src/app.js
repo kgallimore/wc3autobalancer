@@ -169,6 +169,11 @@ ipcMain.on("toMain", (event, args) => {
         autoHost.gameName = args.data.gameName;
       }
       autoHost[args.data.key] = args.data.value;
+      if (socket) {
+        socket.send(
+          JSON.stringify({ messageType: "autoHost", data: autoHost })
+        );
+      }
       store.set("autoHost", autoHost);
       break;
     case "getElementPos":
@@ -352,15 +357,15 @@ function sendStatus(status = "Waiting For Connection") {
   });
 }
 
-function handleWSMessage(message) {
+async function handleWSMessage(message) {
   message = JSON.parse(message);
   switch (message.messageType) {
     case "typeGameName":
       gameNumber += 1;
       if (autoHost.increment) {
-        typeText(autoHost.gameName + " #" + gameNumber.toString(), true);
+        await typeText(autoHost.gameName + " #" + gameNumber.toString(), true);
       } else {
-        typeText(autoHost.gameName, true);
+        await typeText(autoHost.gameName, true);
       }
       /*robot.typeStringDelayed(
         autoHost.gameName + " #" + gameNumber.toString(),
@@ -404,7 +409,7 @@ function handleWSMessage(message) {
 function processMapData(lobbyData) {
   if (menuState === "In Lobby") {
     lobby.mapData = lobbyData.mapData;
-    if (eloLookup !== "off") {
+    if (autoHost.eloLookup !== "off") {
       lobby.eloList = {};
       lobby.lookingUpELO = new Set();
       const mapName = lobby.mapData.mapName;
@@ -449,13 +454,16 @@ function processMapData(lobbyData) {
       } else {
         lobby.eloAvailable = autoHost.eloAvailable;
         lobby.eloMapName = autoHost.eloMapName;
+        sendWindow("lobbyData", lobby);
+        processLobby(lobbyData.lobbyData);
       }
     } else {
       lobby.eloAvailable = false;
     }
   }
 }
-function processLobby(lobbyData) {
+
+async function processLobby(lobbyData) {
   lobby.lobbyData = lobbyData;
   if (lobby.eloAvailable) {
     const mapName = lobby.eloMapName;
@@ -472,6 +480,8 @@ function processLobby(lobbyData) {
       ) {
         lobby.lookingUpELO.add(user);
         if (autoHost.eloLookup === "wc3stats") {
+          console.log("wc3stats");
+
           https
             .get(
               `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
@@ -483,7 +493,7 @@ function processLobby(lobbyData) {
                   dataChunks += chunk;
                 });
                 // The whole response has been received. Print out the result.
-                resp.on("end", () => {
+                resp.on("end", async () => {
                   const jsonData = JSON.parse(dataChunks);
                   lobby.lookingUpELO.delete(user);
                   let elo = 500;
@@ -509,7 +519,7 @@ function processLobby(lobbyData) {
                     });
                     sendSocket("sendChat");
                     log.verbose(user + " ELO: " + elo.toString());
-                    typeText(user + " ELO: " + elo.toString(), true);
+                    await typeText(user + " ELO: " + elo.toString(), true);
                     log.silly(lobby.lookingUpELO);
                     log.silly(lobby.eloList);
                     // If the lobby is full, and we have the ELO for everyone,
@@ -533,18 +543,23 @@ function processLobby(lobbyData) {
       }
     });
   }
-  if (
+  if (lobbyIsReady()) {
+    finalizeLobby();
+  }
+  sendWindow("lobbyUpdate", lobby);
+}
+
+function lobbyIsReady() {
+  return (
     (lobby.eloAvailable &&
       lobby.lobbyData.openPlayerSlots === 0 &&
       Object.keys(lobby.eloList).length ===
         lobby.lobbyData.allPlayers.length) ||
     (!lobby.eloAvailable && lobby.lobbyData.openPlayerSlots === 0)
-  ) {
-    finalizeLobby();
-  }
-  sendWindow("lobbyUpdate", lobby);
+  );
 }
-function finalizeLobby() {
+
+async function finalizeLobby() {
   if (lobby.eloAvailable) {
     lobby.totalElo = Object.values(lobby.eloList).reduce((a, b) => a + b, 0);
     let smallestEloDiff = Number.POSITIVE_INFINITY;
@@ -567,24 +582,44 @@ function finalizeLobby() {
     lobby.bestCombo = bestCombo;
     lobby.eloDiff = smallestEloDiff;
     swapHelper(lobby);
+    await typeText("ELO data provided by: " + autoHost.eloLookup, true);
     if (!lobby.mapData.isHost) {
       sendSocket("sendChat");
-      typeText(lobby.leastSwap + " should be: " + bestCombo.join(", "), true);
+      await typeText(
+        lobby.leastSwap + " should be: " + bestCombo.join(", "),
+        true
+      );
     } else {
       for (let i = 0; i < lobby.swaps[0].length; i++) {
+        if (!lobbyIsReady()) {
+          break;
+        }
         sendSocket("sendChat");
-        typeText("!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i], true);
+        await typeText(
+          "!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i],
+          true
+        );
       }
     }
   }
-  if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
-    if (autoHost.sounds) {
-      playSound("ready.wav");
+  // Wait a quarter second to make sure no one left
+  setTimeout(async () => {
+    if (lobbyIsReady()) {
+      if (lobby.mapData.isHost && autoHost.type === "ghostHost") {
+        sendSocket("sendChat");
+        await typeText(
+          "AutoHost functionality provided by WC3 Auto Balancer.",
+          true
+        );
+        if (autoHost.sounds) {
+          playSound("ready.wav");
+        }
+        log.info("Starting game");
+        socket.send(JSON.stringify({ messageType: "start" }));
+        setTimeout(tempFindQuit, 60000);
+      }
     }
-    log.info("Starting game");
-    socket.send(JSON.stringify({ messageType: "start" }));
-    setTimeout(tempFindQuit, 60000);
-  }
+  }, 250);
 }
 
 function swapHelper(lobbyData) {
@@ -695,6 +730,7 @@ async function typeText(text, hitEnter = false) {
       setTimeout(typeText.bind(null, text), 3000);
     }
   }
+  return;
 }
 
 function playSound(file) {
@@ -732,8 +768,8 @@ async function findQuit() {
 // Everything below is temporary until nut-js fixes the issue with windows scaling
 // https://github.com/nut-tree/nut.js/issues/249
 
-let quitHLWMat, quitNormalMat;
-async function tempFindQuitHelper(templateMat, targetCoefficient = 0.9) {
+let quitHLWMat, quitNormalMat, quitHLWHighlightMat, quitNormalHighlightMat;
+async function tempFindQuitHelper(templateMat, targetCoefficient = 0.8) {
   try {
     let pic = robot.screen.capture();
     const image = new Jimp(pic.width, pic.height);
@@ -772,7 +808,10 @@ async function tempFindQuit() {
       log.verbose("Looking for quit");
       const foundQuitHLW = await tempFindQuitHelper(quitHLWMat);
       const foundQuitNormal = await tempFindQuitHelper(quitNormalMat);
-      if (foundQuitHLW || foundQuitNormal) {
+      const foundQuitHLWHighlight = await tempFindQuitHelper(
+        quitHLWHighlightMat
+      );
+      if (foundQuitHLW || foundQuitNormal || foundQuitHLWHighlight) {
         log.verbose("Found quit. Press q");
         await keyboard.type("q");
         if (autoHost.sounds) {
@@ -793,9 +832,15 @@ async function setupMats() {
       quitNormalMat = await cv.imreadAsync(
         `${__dirname}\\images\\quitNormal.png`
       );
+      quitHLWHighlightMat = await cv.imreadAsync(
+        `${__dirname}\\images\\quitHLWHighlight.png`
+      );
     } else {
       quitHLWMat = await cv.imreadAsync(
         `${app.getAppPath()}\\..\\..\\images\\quitHLW.png`
+      );
+      quitHLWHighlightMat = await cv.imreadAsync(
+        `${app.getAppPath()}\\..\\..\\images\\quitHLWHighlight.png`
       );
       quitNormalMat = await cv.imreadAsync(
         `${app.getAppPath()}\\..\\..\\images\\quitNormal.png`
