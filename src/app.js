@@ -254,6 +254,7 @@ const createWindow = () => {
   win = new BrowserWindow({
     width: 600,
     height: 800,
+    title: "WC3 Auto Balancer v" + app.getVersion(),
     show: false,
     icon: path.join(__dirname, "images/scale.png"),
     webPreferences: {

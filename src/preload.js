@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, shell } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 const Store = require("electron-store");
 const store = new Store();
 // After I stop changing these values around I can just get the whole dict
@@ -93,13 +93,7 @@ window.addEventListener("DOMContentLoaded", () => {
       messageType: "openLogs",
     });
   });
-  /*
-  const replaceText = (selector, text) => {
-    const element = document.getElementById(selector);
-    if (element) element.innerText = text;
-  };
 
-*/
   for (const dependency of ["chrome", "node", "electron"]) {
     console.log(`${dependency}-version`, process.versions[dependency]);
   }
