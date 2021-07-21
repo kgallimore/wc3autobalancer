@@ -1,5 +1,6 @@
 # WC3 Auto Balancer
 
+[Click here for a v1.3 overall demo](https://youtu.be/bO37LO9TQWM)
 
 # What this tool does: #
 * ## Auto Host ##
