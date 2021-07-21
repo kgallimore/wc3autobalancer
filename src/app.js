@@ -342,10 +342,7 @@ app.on("activate", () => {
 });
 
 function sendProgress(step = "Nothing", progress = 0) {
-  win.webContents.send("fromMain", {
-    messageType: "processing",
-    data: { step: step, progress: progress },
-  });
+  sendWindow("progress", { step, progress });
 }
 
 function sendStatus(status = "Waiting For Connection") {
@@ -359,13 +356,18 @@ function sendStatus(status = "Waiting For Connection") {
 async function handleWSMessage(message) {
   message = JSON.parse(message);
   switch (message.messageType) {
+    case "toggleAutoHost":
+      log.info("Toggling autoHost");
+      autoHost.type = autoHost.type === "off" ? "autoHost" : "off";
+      store.set("autoHost", autoHost);
+      sendSocket("autoHost", autoHost);
+      sendWindow("autoHost", autoHost);
     case "typeGameName":
       gameNumber += 1;
-
       if (autoHost.increment) {
-        await typeText(autoHost.gameName + " #" + gameNumber.toString(), true);
+        await typeText(autoHost.gameName + " #" + gameNumber.toString(), false);
       } else {
-        await typeText(autoHost.gameName, true);
+        await typeText(autoHost.gameName, false);
       }
       sendSocket("doneTyping");
       /*robot.typeStringDelayed(
@@ -518,7 +520,6 @@ async function processLobby(lobbyData) {
                       messageType: "lobbyUpdate",
                       data: lobby,
                     });
-                    sendSocket("sendChat");
                     log.verbose(user + " ELO: " + elo.toString());
                     await typeText(user + " ELO: " + elo.toString(), true);
                     log.silly(lobby.lookingUpELO);
@@ -585,7 +586,6 @@ async function finalizeLobby() {
     swapHelper(lobby);
     await typeText("ELO data provided by: " + autoHost.eloLookup, true);
     if (!lobby.mapData.isHost) {
-      sendSocket("sendChat");
       await typeText(
         lobby.leastSwap + " should be: " + bestCombo.join(", "),
         true
@@ -595,7 +595,10 @@ async function finalizeLobby() {
         if (!lobbyIsReady()) {
           break;
         }
-        sendSocket("sendChat");
+        sendProgress(
+          "Swapping " + lobby.swaps[0][i] + " and " + lobby.swaps[1][i],
+          100
+        );
         await typeText(
           "!swap " + lobby.swaps[0][i] + " " + lobby.swaps[1][i],
           true
@@ -603,12 +606,12 @@ async function finalizeLobby() {
       }
     }
   }
+  sendProgress("Starting Game", 100);
   // Wait a quarter second to make sure no one left
   if (lobby.mapData.isHost) {
     if (autoHost.type === "ghostHost") {
       setTimeout(async () => {
         if (lobbyIsReady()) {
-          sendSocket("sendChat");
           await typeText(
             "AutoHost functionality provided by WC3 Auto Balancer.",
             true
@@ -708,31 +711,37 @@ async function activeWindowWar() {
   warcraftInFocus = focused;
 }
 
-async function typeText(text, hitEnter = false) {
+async function typeText(text, sendToChat = false) {
   if (socket) {
     await activeWindowWar();
     if (warcraftInFocus) {
-      let oldClipboard = clipboard.readText();
-      if (hitEnter) {
-        await keyboard.type(Key.Enter);
+      if (
+        (menuState === "In Lobby" && sendToChat) ||
+        (!sendToChat && menuState !== "Creating Game")
+      ) {
+        let oldClipboard = clipboard.readText();
+        if (sendToChat) {
+          sendSocket("sendChat");
+          await keyboard.type(Key.Enter);
+        }
+        clipboard.writeText(text);
+        keyboard
+          .pressKey(Key.LeftControl, Key.V)
+          .then(keyboard.releaseKey(Key.LeftControl, Key.V))
+          .then(async () => {
+            clipboard.writeText(oldClipboard);
+          })
+          .then(async () => {
+            if (sendToChat) {
+              await keyboard.type(Key.Enter);
+            }
+          })
+          .catch((err) => {
+            log.error(err);
+          });
       }
-      clipboard.writeText(text);
-      keyboard
-        .pressKey(Key.LeftControl, Key.V)
-        .then(keyboard.releaseKey(Key.LeftControl, Key.V))
-        .then(async () => {
-          clipboard.writeText(oldClipboard);
-        })
-        .then(async () => {
-          if (hitEnter) {
-            await keyboard.type(Key.Enter);
-          }
-        })
-        .catch((err) => {
-          log.error(err);
-        });
     } else {
-      setTimeout(typeText.bind(null, text), 3000);
+      setTimeout(typeText.bind(null, text, sendToChat), 3000);
     }
   }
   return;
@@ -810,6 +819,7 @@ async function tempFindQuit() {
   if (socket && menuState === "In Game") {
     await activeWindowWar();
     if (warcraftInFocus) {
+      sendProgress("Searching for quit...", 100);
       log.verbose("Looking for quit");
       const foundQuitHLW = await tempFindQuitHelper(quitHLWMat);
       const foundQuitNormal = await tempFindQuitHelper(quitNormalMat);
@@ -817,6 +827,8 @@ async function tempFindQuit() {
         quitHLWHighlightMat
       );
       if (foundQuitHLW || foundQuitNormal || foundQuitHLWHighlight) {
+        sendProgress("Found quit. Quitting", 100);
+
         log.verbose("Found quit. Press q");
         await keyboard.type("q");
         if (autoHost.sounds) {

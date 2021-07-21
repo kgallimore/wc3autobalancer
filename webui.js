@@ -11,6 +11,7 @@ let autoHost = {
   eloLookup: "off",
   mapDirectory: ["Download"],
 };
+let addedHtml;
 const testNonPlayersTeam = /((computer)|(creeps)|(summoned))/i;
 const testSpecTeam = /((host)|(spectator)|(observer))/i;
 const testSlotAvailable = /Slot \d+ (Open Slot|Closed)/i;
@@ -60,6 +61,17 @@ function wsSetup() {
         break;
       case "autoHost":
         autoHost = data.data;
+        if (autoHost.type !== "off") {
+          navigateMenus();
+        }
+        let buttonColor = document.getElementById("toggleAutoHostColor");
+        buttonColor.classList.toggle("Primary-Button-Red");
+        buttonColor.classList.toggle("Primary-Button-Green");
+        buttonColor.querySelector(
+          "div:not([class]), div[class='']"
+        ).innerHTML = `Toggle Auto Host ${
+          autoHost.type === "off" ? "On" : "Off"
+        }`;
         sendSocket("info", autoHost);
         break;
       case "start":
@@ -116,24 +128,30 @@ function mutationsSetup() {
       } else {
         menuState = newMenuState;
       }
+      if (
+        !addedHtml &&
+        menuState !== "Out of Menus" &&
+        menuState !== "Unknown"
+      ) {
+        addedHtml = document.createElement("DIV");
+        addedHtml.style.zoom = "1.75";
+        addedHtml.innerHTML = `<div class="Primary-Back-Button" style="position:absolute; left:30%"><div class="Primary-Button-Frame-Alternate-B" id="toggleAutoHostButton"><div class="Primary-Button Primary-Button-${
+          autoHost.type === "off" ? "Red" : "Green"
+        }" id="toggleAutoHostColor"><div class="Primary-Button-Content"><div>Toggle Auto Host ${
+          autoHost.type === "off" ? "On" : "Off"
+        }</div></div></div></div></div>`;
+        document.getElementById("root").appendChild(addedHtml);
+        document
+          .getElementById("toggleAutoHostButton")
+          .addEventListener("click", function (event) {
+            sendSocket("toggleAutoHost");
+          });
+      } else if (addedHtml && menuState === "Loading Game") {
+        addedHtml.remove();
+      }
       sendSocket("menusChange", menuState);
       if (autoHost.type !== "off") {
-        switch (newMenuState) {
-          case "Main Menu":
-            clickCustomGames();
-            break;
-          case "Browse Games":
-            clickCreate();
-            break;
-          case "Creating Game":
-            createLobby();
-            break;
-          case "Score Screen":
-            if (autoHost.type !== "off") {
-              document.querySelector("div.EscapeIcon").click();
-            }
-            break;
-        }
+        navigateMenus(menuState);
       }
 
       if (menuState === "In Lobby") {
@@ -295,7 +313,7 @@ function clickCreate() {
 }
 
 function createLobby() {
-  if (menuState === "Creating Game") {
+  if (menuState === "Creating Game" && autoHost.type !== "off") {
     try {
       const isIncorrectMap =
         document.querySelector("div.CreateGameMenu-MapDetails-MapName") &&
@@ -555,3 +573,22 @@ function sendSocket(messageType = "info", data = "") {
 mutationsSetup();
 
 wsSetup();
+
+function navigateMenus() {
+  switch (menuState) {
+    case "Main Menu":
+      clickCustomGames();
+      break;
+    case "Browse Games":
+      clickCreate();
+      break;
+    case "Creating Game":
+      createLobby();
+      break;
+    case "Score Screen":
+      if (autoHost.type !== "off") {
+        document.querySelector("div.EscapeIcon").click();
+      }
+      break;
+  }
+}

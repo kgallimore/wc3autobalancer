@@ -18,6 +18,7 @@ var autoHost = {
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
+/*
 contextBridge.exposeInMainWorld("api", {
   send: (channel, data) => {
     // whitelist channels
@@ -33,39 +34,26 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }
   },
-});
+});*/
 
-window.addEventListener("DOMContentLoaded", () => {
-  const autoHostState = document.getElementById("autoHostState");
-  const eloLookupState = document.getElementById("eloLookup");
-  const autoHostMapName = document.getElementById("autoHostMapName");
-  const autoHostGameName = document.getElementById("autoHostGameName");
-  const mapDirectorySpan = document.getElementById("mapDirectorySpan");
-  const autoHostPrivateCheck = document.getElementById("autoHostPrivateCheck");
-  const autoHostSoundsCheck = document.getElementById("autoHostSoundsCheck");
-  const autoHostIncrementCheck = document.getElementById(
-    "autoHostIncrementCheck"
-  );
-
-  autoHostState.value = autoHost.type;
-  eloLookupState.value = autoHost.eloLookup;
-
-  autoHostPrivateCheck.checked = autoHost.private;
-  autoHostSoundsCheck.checked = autoHost.sounds;
-  autoHostIncrementCheck.checked = autoHost.increment;
-
-  autoHostMapName.value = autoHost.mapName;
-  autoHostGameName.value = autoHost.gameName;
-  mapDirectorySpan.innerText = "\\" + autoHost.mapDirectory.join("\\");
-
-  autoHostState.addEventListener("change", updateAutoHostSingle);
-  autoHostPrivateCheck.addEventListener("change", updateAutoHostSingle);
-  eloLookupState.addEventListener("change", updateAutoHostSingle);
-  autoHostSoundsCheck.addEventListener("change", updateAutoHostSingle);
-  autoHostIncrementCheck.addEventListener("change", updateAutoHostSingle);
-
-  autoHostMapName.addEventListener("keyup", updateName);
-  autoHostGameName.addEventListener("keyup", updateName);
+if (document.readyState !== "loading") {
+  console.log("document is ready");
+  init();
+} else {
+  document.addEventListener("DOMContentLoaded", function () {
+    console.log("document was not ready");
+    init();
+  });
+}
+function init() {
+  updateSettings();
+  document.querySelectorAll("input, select").forEach((input) => {
+    if (input.nodeName === "INPUT" && input.type === "text") {
+      input.addEventListener("keyup", updateName);
+    } else {
+      input.addEventListener("change", updateAutoHostSingle);
+    }
+  });
 
   function updateAutoHostSingle(event) {
     const value =
@@ -101,7 +89,7 @@ window.addEventListener("DOMContentLoaded", () => {
         messageType: "autoHostSingle",
         data: {
           key: "mapName",
-          value: autoHostMapName.value,
+          value: document.getElementById("autoHostMapName").value,
         },
       });
     }
@@ -110,7 +98,7 @@ window.addEventListener("DOMContentLoaded", () => {
         messageType: "autoHostSingle",
         data: {
           key: "gameName",
-          value: autoHostGameName.value,
+          value: document.getElementById("autoHostGameName").value,
         },
       });
     }
@@ -140,4 +128,122 @@ window.addEventListener("DOMContentLoaded", () => {
   for (const dependency of ["chrome", "node", "electron"]) {
     console.log(`${dependency}-version`, process.versions[dependency]);
   }
-});
+  const statusElement = document.getElementById("mainStatus");
+  const statusText = document.getElementById("statusText");
+  const progressBar = document.getElementById("progressBar");
+  const progressBarLabel = document.getElementById("progressBarLabel");
+
+  function updateSettings() {
+    document.querySelectorAll("input, select").forEach((input) => {
+      if (input.type === "checkbox") {
+        input.checked = autoHost[input.getAttribute("data-autoHost-key")];
+      } else {
+        input.value = autoHost[input.getAttribute("data-autoHost-key")];
+      }
+    });
+    document.getElementById("autoHostSettings").style.display =
+      autoHost.type === "off" ? "none" : "block";
+  }
+
+  ipcRenderer.on("fromMain", (event, data) => {
+    switch (data.messageType) {
+      case "statusChange":
+        switch (data.data) {
+          case "connected":
+            statusText.innerText = "Connected to Warcraft";
+            statusElement.classList.remove("bg-secondary", "bg-warning");
+            statusElement.classList.add("bg-success", "badge");
+            break;
+          case "disconnected":
+            statusText.innerText = "Disconnected from Warcraft";
+            statusElement.classList.remove("bg-secondary", "bg-success");
+            statusElement.classList.add("bg-warning", "badge");
+            break;
+        }
+        break;
+      case "autoHost":
+        console.log("autoHost", data.data);
+        autoHost = data.data;
+        updateSettings();
+        break;
+      case "lobbyUpdate":
+        generateTables(data.data);
+        break;
+      case "lobbyData":
+        generateLobbyData(data.data);
+        break;
+      case "processing":
+        progressBarLabel.innerText = data.data.step;
+        progressBar.style.width = data.data.progress.toString() + "%";
+        break;
+      case "menusChange":
+        document.getElementById("menuStateLabel").innerText = data.data;
+        break;
+      case "error":
+        alert(data.data);
+        break;
+      case "gotMapDirectory":
+        document.getElementById("mapDirectorySpan").innerText =
+          "\\" + data.data.join("\\");
+        break;
+      default:
+        console.log("Unknown:", data);
+    }
+  });
+
+  function generateLobbyData(data) {
+    try {
+      document.getElementById("mapName").innerText = data.mapData.mapName;
+      document.getElementById("gameName").innerText = data.mapData.gameName;
+      document.getElementById("gameHost").innerText = data.mapData.gameHost;
+      document.getElementById(
+        "eloAvailable"
+      ).innerText = `${data.eloAvailable}. (${data.eloMapName})`;
+    } catch (e) {
+      console.log(e.message, e.stack);
+    }
+  }
+
+  // This is going to be a very messy function,placeholder to just get it started
+  function generateTables(lobby) {
+    try {
+      console.log("Generating tables");
+      document.getElementById("tablesDiv").innerHTML = "";
+      let tbl;
+      Object.keys(lobby.lobbyData.teamList.playerTeams).forEach(
+        (playerTeam) => {
+          tbl = document.createElement("table");
+          tbl.classList.add(
+            "table",
+            "table-hover",
+            "table-striped",
+            "table-sm"
+          );
+          let trow = tbl.createTHead().insertRow();
+          [`${playerTeam} Players`, "ELO"].forEach((label) => {
+            let th = document.createElement("th");
+            th.appendChild(document.createTextNode(label));
+            trow.appendChild(th);
+          });
+          let tBody = tbl.createTBody();
+          lobby.lobbyData.teamList.playerTeams[playerTeam].slots.forEach(
+            (player) => {
+              let row = tBody.insertRow();
+              row.insertCell().appendChild(document.createTextNode(player));
+              let cell = row.insertCell();
+              let text = document.createTextNode(
+                lobby.eloList && lobby.eloList[player]
+                  ? lobby.eloList[player]
+                  : "N/A"
+              );
+              cell.appendChild(text);
+            }
+          );
+          document.getElementById("tablesDiv").appendChild(tbl);
+        }
+      );
+    } catch (e) {
+      console.error(e.message, e.stack);
+    }
+  }
+}
