@@ -31,6 +31,27 @@ function emptyTeams() {
 function wsSetup() {
   webSocket = new WebSocket("ws://127.0.0.1:8888");
   webSocket.onopen = function (event) {
+    if (
+      !addedHtml &&
+      menuState !== "Out of Menus" &&
+      menuState !== "Unknown" &&
+      webSocket &&
+      webSocket.readyState === 1
+    ) {
+      addedHtml = document.createElement("DIV");
+      addedHtml.style.zoom = "1.75";
+      addedHtml.innerHTML = `<div class="Primary-Back-Button" style="position:absolute; left:30%"><div class="Primary-Button-Frame-Alternate-B" id="toggleAutoHostButton"><div class="Primary-Button Primary-Button-${
+        autoHost.type === "off" ? "Red" : "Green"
+      }" id="toggleAutoHostColor"><div class="Primary-Button-Content"><div>Toggle Auto Host ${
+        autoHost.type === "off" ? "On" : "Off"
+      }</div></div></div></div></div>`;
+      document.getElementById("root").appendChild(addedHtml);
+      document
+        .getElementById("toggleAutoHostButton")
+        .addEventListener("click", function (event) {
+          sendSocket("toggleAutoHost");
+        });
+    }
     sendSocket("info", "Connected. Hello! I am version: " + version);
     sendSocket("menusChange", menuState);
     if (lobby && Object.keys(lobby).length > 0) {
@@ -38,6 +59,9 @@ function wsSetup() {
     }
   };
   webSocket.onclose = function (event) {
+    if (addedHtml) {
+      addedHtml.remove();
+    }
     window.setTimeout(wsSetup, 5000);
   };
   webSocket.onmessage = function (event) {
@@ -131,7 +155,9 @@ function mutationsSetup() {
       if (
         !addedHtml &&
         menuState !== "Out of Menus" &&
-        menuState !== "Unknown"
+        menuState !== "Unknown" &&
+        webSocket &&
+        webSocket.readyState === 1
       ) {
         addedHtml = document.createElement("DIV");
         addedHtml.style.zoom = "1.75";

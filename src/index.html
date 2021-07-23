@@ -16,16 +16,16 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Auto Host and ELO Settings</h5>
+          <h5 class="modal-title">Settings</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <form name="autoHostForm" class="p-2">
-            <div class="container">
+          <div class="container">
+            <form name="autoHostForm" class="p-2">
               <div class="row">
                 <div class="col">
                   <label for="eloLookup" class="form-label">ELO Lookup</label>
-                  <select id="eloLookup" class="form-select" data-autoHost-key="eloLookup">
+                  <select id="eloLookup" class="form-select" data-key="eloLookup" data-setting="autoHost">
                     <option value="off" selected>Disabled</option>
                     <option value="wc3stats">wc3stats.com</option>
                     <option value="pyrotd" disabled>PyroTDLeague</option>
@@ -34,7 +34,7 @@
                 </div>
                 <div class="col">
                   <label for="autoHostState" class="form-label">Auto Host</label>
-                  <select id="autoHostState" class="form-select" data-autoHost-key="type">
+                  <select id="autoHostState" class="form-select" data-key="type" data-setting="autoHost">
                     <option value="off" selected>Disabled</option>
                     <option value="autoHost">Auto Host Lobbies</option>
                     <option value="ghostHost">Full Auto Host</option>
@@ -48,14 +48,15 @@
                 <div class="row p-2">
                   <div class="col">
                     <div class="d-flex justify-content-center">
-                      <input type="checkbox" class="btn-check" id="autoHostPrivateCheck" data-autoHost-key="private">
+                      <input type="checkbox" class="btn-check" id="autoHostPrivateCheck" data-key="private"
+                        data-setting="autoHost">
                       <label for="autoHostPrivateCheck" class="btn btn-outline-primary">Private Lobbies</label>
                     </div>
                   </div>
                   <div class="col">
                     <div class="d-flex justify-content-center">
-                      <input type="checkbox" class="btn-check" id="autoHostIncrementCheck"
-                        data-autoHost-key="increment">
+                      <input type="checkbox" class="btn-check" id="autoHostIncrementCheck" data-key="increment"
+                        data-setting="autoHost">
                       <label for="autoHostIncrementCheck" class="btn btn-outline-primary">Incremental Lobbies</label>
                     </div>
                   </div>
@@ -63,7 +64,8 @@
                 <div class="row p-2">
                   <div class="col">
                     <div class="d-flex justify-content-center">
-                      <input type="checkbox" class="btn-check" id="autoHostSoundsCheck" data-autoHost-key="sounds">
+                      <input type="checkbox" class="btn-check" id="autoHostSoundsCheck" data-key="sounds"
+                        data-setting="autoHost">
                       <label for="autoHostSoundsCheck" class="btn btn-outline-primary">Sound Notifications</label>
                     </div>
                   </div>
@@ -72,78 +74,112 @@
                   <div class="col">
                     <label for="autoHostMapName" class="form-label">Map Name</label>
                     <input type="text" class="form-control" id="autoHostMapName"
-                      placeholder="Map name (exact match, no extension, no color)" minlength="3"
-                      data-autoHost-key="mapName">
+                      placeholder="Map name (exact match, no extension, no color)" minlength="3" data-key="mapName"
+                      data-setting="autoHost">
                   </div>
                 </div>
                 <div class="row p-2">
                   <div class="col">
                     <label for="autoHostGameName" class="form-label">Game Name</label>
-                    <input type="text" class="form-control" id="autoHostGameName"
-                      placeholder="Game Name" maxlength="27" minlength="3" data-autoHost-key="gameName">
+                    <input type="text" class="form-control" id="autoHostGameName" placeholder="Game Name" maxlength="27"
+                      minlength="3" data-key="gameName" data-setting="autoHost">
                   </div>
                 </div>
                 <div class="row">
                   <div class="col">
                     <div class="d-flex justify-content-center">
-
-                    <button id="saveNameButton" style="display:none" type="button" class="btn btn-primary" data-autoHost-action="save">Save
-                      Names</button>
-                      </div>
+                      <button id="saveNameButton" style="display:none" type="button" class="btn btn-primary"
+                        data-autoHost-action="save">Save
+                        Names</button>
+                    </div>
                   </div>
                 </div>
-                <div class="row pt-4">
+                <div class="row p-4">
                   <div class="col">
                     <button type="button" class="btn btn-primary" id="autoHostMapDirectory">Set Map directory</button>
                     Current Map Directory: <span id="mapDirectorySpan"></span>
                   </div>
                 </div>
               </div>
-            </div>
-
-          </form>
-          <div>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Setting</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Map Name</td>
-                  <td>This setting needs to be set to what the map name is in game.</td>
-                </tr>
-                <tr>
-                  <td>Map Directory</td>
-                  <td>This needs to be set to the maps directory. <strong>It will NOT fill in the map name since file
-                      name =/= map name.</strong></td>
-                </tr>
-                <tr>
-                  <td>ELO Lookup</td>
-                  <td>Which resource will be used to look up ELOs. Local and PyroTD are currently unavailable</td>
-                </tr>
-                <tr>
-                  <td>Auto Host</td>
-                  <td><strong>Auto Host Lobbies:</strong> Clicks though menus and creates a lobby of specified game.<br>
-                    <strong>Full Auto Host:</strong> Auto Host Lobbies + moves to any host/spectator slot. Starts the
-                    game on full lobby. Will quit the game if this game end screen pops up:
-                    <image class="img-fluid" src="images/quitNormal.png"></image>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Play Sounds</td>
-                  <td><strong>Auto Host Lobbies:</strong> Play a sound notification when lobby is full<br>
-                    <strong>Full Auto Host:</strong> Play sound notifications when game starts or is quit
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            </form>
+            <form name="obsForm" class="p-2">
+              <div class="row">
+                <div class="col">
+                  <label for="obsSelect" class="form-label">OBS Integration</label>
+                  <select id="obsSelect" class="form-select" data-key="type" data-setting="obs">
+                    <option value="off" selected>Disabled</option>
+                    <option value="hotkeys">Simulate Hotkeys</option>
+                    <option value="webosckets" disabled>OBS Websockets</option>
+                  </select>
+                </div>
+              </div>
+              <div id="obsHotkeysSettings" class="border m-2 p-2">
+                <div class="row">
+                  <div class="col d-flex justify-content-center">OBS Hotkeys Settings</div>
+                  <div class="row">
+                    <div class="col">
+                      <label for="inGameHotkey">In game hotkey</label>
+                      <input type="text" class="form-control" id="inGameHotkey" placeholder="In game hotkey"
+                        data-key="inGameHotkey" data-setting="obs">
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col">
+                      <label for="outOfGameHotkey">Out of game hotkey</label>
+                      <input type="text" class="form-control" id="outOfGameHotkey" placeholder="Out of game hotkey"
+                        data-key="outOfGameHotkey" data-setting="obs">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="obsWeboscketsSettings" class="border m-2" style="display:none">
+              </div>
+            </form>
           </div>
+        </div>
+
+        <div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Setting</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Map Name</td>
+                <td>This setting needs to be set to what the map name is in game.</td>
+              </tr>
+              <tr>
+                <td>Map Directory</td>
+                <td>This needs to be set to the maps directory. <strong>It will NOT fill in the map name since file
+                    name =/= map name.</strong></td>
+              </tr>
+              <tr>
+                <td>ELO Lookup</td>
+                <td>Which resource will be used to look up ELOs. Local and PyroTD are currently unavailable</td>
+              </tr>
+              <tr>
+                <td>Auto Host</td>
+                <td><strong>Auto Host Lobbies:</strong> Clicks though menus and creates a lobby of specified game.<br>
+                  <strong>Full Auto Host:</strong> Auto Host Lobbies + moves to any host/spectator slot. Starts the
+                  game on full lobby. Will quit the game if this game end screen pops up:
+                  <image class="img-fluid" src="images/quitNormal.png"></image>
+                </td>
+              </tr>
+              <tr>
+                <td>Play Sounds</td>
+                <td><strong>Auto Host Lobbies:</strong> Play a sound notification when lobby is full<br>
+                  <strong>Full Auto Host:</strong> Play sound notifications when game starts or is quit
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
+  </div>
   </div>
   <div class="d-flex justify-content-center p-2">
     <span class="badge bg-secondary" id="mainStatus">
@@ -152,7 +188,7 @@
   </div>
   <div class="d-flex justify-content-center pt-1">
     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#settingsModal">
-      Elo / Auto Host Settings
+      Settings
     </button>
     <button type="button" class="btn btn-primary" id="logsButton">
       Open Logs

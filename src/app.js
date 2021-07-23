@@ -25,8 +25,12 @@ const cv = require("opencv4nodejs-prebuilt");
 const robot = require("robotjs");
 const Jimp = require("jimp");
 const sound = require("sound-play");
+const { ReplayParser } = require("w3gjs");
+const { readFileSync, readdirSync } = require("fs");
 
 const store = new Store();
+const parser = new ReplayParser();
+const testFlag = new RegExp(/FlagP \d+ (Loser|Winner)/i);
 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
@@ -42,8 +46,13 @@ var currentStatus = "Waiting For Connection";
 var gameNumber = 0;
 var lobby = {};
 var warcraftInFocus = true;
-var typingGameName = false;
+var menuState = "Out of Menus";
 var wss;
+var obsSettings = {
+  type: store.get("obsSettings.type") || "off",
+  inGameHotkey: store.get("obsSettings.inGameHotkey") || false,
+  outOfGameHotkey: store.get("obsSettings.outOfGameHotkey") || false,
+};
 // After I stop changing these values around I can just get the whole dict
 //var autoHost = store.get("autoHost")
 var autoHost = {
@@ -58,7 +67,6 @@ var autoHost = {
   eloMapName: store.get("autoHost.eloMapName") || "",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
-var menuState = "Out of Menus";
 
 ipcMain.on("toMain", (event, args) => {
   switch (args.messageType) {
@@ -94,71 +102,66 @@ ipcMain.on("toMain", (event, args) => {
         socket.send(JSON.stringify({ messageType: args }));
       }
       break;
-    case "autoHost":
-      log.info("autoHost", args.data);
-      autoHost = args.data;
-      store.set("autoHost", args.data);
-      if (socket) {
-        socket.send(JSON.stringify(args));
-      }
-      break;
-    case "autoHostSingle":
-      if (args.data.key === "mapName") {
-        autoHost.mapName = args.data.value;
-        if (autoHost.eloLookup === "wc3stats") {
-          if (autoHost.mapName.match(/(HLW)/i)) {
-            autoHost.eloMapName = "HLW";
-            autoHost.eloAvailable = true;
-          } else {
-            autoHost.eloMapName = autoHost.mapName
-              .trim()
-              .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
-              .replace(/\s/g, "%20");
-            log.info(
-              "Querying wc3stats to see if ELO data is available for: autoHost.mapName"
-            );
-            log.info(`https://api.wc3stats.com/maps/${autoHost.eloMapName}`);
-            https
-              .get(
-                `https://api.wc3stats.com/maps/${autoHost.eloMapName}`,
-                (resp) => {
-                  let dataChunks = "";
-                  resp.on("data", (chunk) => {
-                    dataChunks += chunk;
-                  });
-                  resp.on("end", () => {
-                    const jsonData = JSON.parse(dataChunks);
-                    autoHost.eloAvailable = jsonData.status === "OK";
-                    log.info("Elo data available: " + autoHost.eloAvailable);
-                    if (!autoHost.eloAvailable) {
-                      sendWindow(
-                        "error",
-                        "We couldn't find any ELO data for your map. Please raise an issue on Github if you think there should be."
-                      );
-                    }
-                    // TODO check variants, seasons, modes, and ladders
-                    /*if (lobbyData.eloAvailable) {
-                  jsonData.body.variants.forEach((variant) => {
-                    variant.stats.forEach((stats) => {});
-                  });
-                }*/
-                  });
-                }
-              )
-              .on("error", (err) => {
-                autoHost.eloAvailable = false;
-                log.error("Error: " + err.message);
-              });
+    case "updateSettingSingle":
+      if (args.data.setting === "autoHost") {
+        if (args.data.key === "mapName") {
+          autoHost.mapName = args.data.value;
+          if (autoHost.eloLookup === "wc3stats") {
+            if (autoHost.mapName.match(/(HLW)/i)) {
+              autoHost.eloMapName = "HLW";
+              autoHost.eloAvailable = true;
+            } else {
+              autoHost.eloMapName = autoHost.mapName
+                .trim()
+                .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
+                .replace(/\s/g, "%20");
+              log.info(
+                "Querying wc3stats to see if ELO data is available for: autoHost.mapName"
+              );
+              log.info(`https://api.wc3stats.com/maps/${autoHost.eloMapName}`);
+              https
+                .get(
+                  `https://api.wc3stats.com/maps/${autoHost.eloMapName}`,
+                  (resp) => {
+                    let dataChunks = "";
+                    resp.on("data", (chunk) => {
+                      dataChunks += chunk;
+                    });
+                    resp.on("end", () => {
+                      const jsonData = JSON.parse(dataChunks);
+                      autoHost.eloAvailable = jsonData.status === "OK";
+                      log.info("Elo data available: " + autoHost.eloAvailable);
+                      if (!autoHost.eloAvailable) {
+                        sendWindow(
+                          "error",
+                          "We couldn't find any ELO data for your map. Please raise an issue on Github if you think there should be."
+                        );
+                      }
+                      // TODO check variants, seasons, modes, and ladders
+                      /*if (lobbyData.eloAvailable) {
+                    jsonData.body.variants.forEach((variant) => {
+                      variant.stats.forEach((stats) => {});
+                    });
+                  }*/
+                    });
+                  }
+                )
+                .on("error", (err) => {
+                  autoHost.eloAvailable = false;
+                  log.error("Error: " + err.message);
+                });
+            }
           }
         }
+        autoHost[args.data.key] = args.data.value;
+        sendSocket("autoHost", autoHost);
+        store.set("autoHost." + args.data.key, args.data.value);
+      } else if (args.data.setting === "obs") {
+        obsSettings[args.data.key] = args.data.value;
+        sendSocket("obsSettings", obsSettings);
+        sendWindow("obsSettings", obsSettings);
+        store.set("obsSettings." + args.data.key, args.data.value);
       }
-      autoHost[args.data.key] = args.data.value;
-      if (socket) {
-        socket.send(
-          JSON.stringify({ messageType: "autoHost", data: autoHost })
-        );
-      }
-      store.set("autoHost", autoHost);
       break;
     case "getElementPos":
       if (socket) {
@@ -341,6 +344,54 @@ app.on("activate", () => {
   }
 });
 
+async function triggerOBS() {
+  if (obsSettings.type === "hotkeys") {
+    if (menuState === "In Game" && obsSettings.inGameHotkey) {
+      if (obsSettings.inGameHotkey.altKey) {
+        await keyboard.pressKey(Key.LeftAlt);
+      }
+      if (obsSettings.inGameHotkey.ctrlKey) {
+        await keyboard.pressKey(Key.LeftControl);
+      }
+      if (obsSettings.inGameHotkey.shiftKey) {
+        await keyboard.pressKey(Key.LeftShift);
+      }
+      await keyboard.pressKey(Key[obsSettings.inGameHotkey.key]);
+      if (obsSettings.inGameHotkey.altKey) {
+        await keyboard.releaseKey(Key.LeftAlt);
+      }
+      if (obsSettings.inGameHotkey.ctrlKey) {
+        await keyboard.releaseKey(Key.LeftControl);
+      }
+      if (obsSettings.inGameHotkey.shiftKey) {
+        await keyboard.releaseKey(Key.LeftShift);
+      }
+      await keyboard.releaseKey(Key[obsSettings.inGameHotkey.key]);
+    } else if (menuState === "Score Screen" && obsSettings.outOfGameHotkey) {
+      if (obsSettings.outOfGameHotkey.altKey) {
+        await keyboard.pressKey(Key.LeftAlt);
+      }
+      if (obsSettings.outOfGameHotkey.ctrlKey) {
+        await keyboard.pressKey(Key.LeftControl);
+      }
+      if (obsSettings.outOfGameHotkey.shiftKey) {
+        await keyboard.pressKey(Key.LeftShift);
+      }
+      await keyboard.pressKey(Key[obsSettings.outOfGameHotkey.key]);
+      if (obsSettings.outOfGameHotkey.altKey) {
+        await keyboard.releaseKey(Key.LeftAlt);
+      }
+      if (obsSettings.outOfGameHotkey.ctrlKey) {
+        await keyboard.releaseKey(Key.LeftControl);
+      }
+      if (obsSettings.outOfGameHotkey.shiftKey) {
+        await keyboard.releaseKey(Key.LeftShift);
+      }
+      await keyboard.releaseKey(Key[obsSettings.outOfGameHotkey.key]);
+    }
+  }
+}
+
 function sendProgress(step = "Nothing", progress = 0) {
   sendWindow("progress", { step, progress });
 }
@@ -382,6 +433,7 @@ async function handleWSMessage(message) {
     case "menusChange":
       menuState = message.data;
       sendWindow(message.messageType, message.data);
+      triggerOBS();
       log.verbose(message);
       break;
     case "lobbyData":
@@ -866,4 +918,32 @@ async function setupMats() {
   } catch (err) {
     log.error("setupMats: " + err);
   }
+}
+
+async function analyzeGame() {
+  let data = new Set();
+  let dataTypes = new Set();
+  parser.on("gamedatablock", (block) => {
+    if (block.id === 0x1f) {
+      block.commandBlocks.forEach((commandBlock) => {
+        if (
+          commandBlock.actions.length > 0 &&
+          commandBlock.actions[0].filename === "MMD.Dat"
+        ) {
+          commandBlock.actions.forEach((block) => {
+            if (block.key && !/^\d+$/.test(block.key)) {
+              if (!/^DefVarP/i.test(block.key)) {
+                data.add(block.key);
+              } else {
+                dataTypes.add(block.key);
+              }
+            }
+          });
+        }
+      });
+    }
+  });
+  await parser.parse(readFileSync("./replay.w3g"));
+  console.log(data);
+  console.log(dataTypes);
 }
