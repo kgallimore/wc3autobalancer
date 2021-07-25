@@ -5,7 +5,6 @@ const {
   Menu,
   webContents,
   ipcMain,
-  ipcRenderer,
   globalShortcut,
   clipboard,
   dialog,
@@ -67,6 +66,8 @@ var autoHost = {
   eloMapName: store.get("autoHost.eloMapName") || "",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
 };
+
+keyboard.config.autoDelayMs = 3;
 
 ipcMain.on("toMain", (event, args) => {
   switch (args.messageType) {
@@ -347,47 +348,41 @@ app.on("activate", () => {
 async function triggerOBS() {
   if (obsSettings.type === "hotkeys") {
     if (menuState === "In Game" && obsSettings.inGameHotkey) {
+      let modifiers = [];
       if (obsSettings.inGameHotkey.altKey) {
-        await keyboard.pressKey(Key.LeftAlt);
+        modifiers.push("alt");
       }
       if (obsSettings.inGameHotkey.ctrlKey) {
-        await keyboard.pressKey(Key.LeftControl);
+        modifiers.push("control");
       }
       if (obsSettings.inGameHotkey.shiftKey) {
-        await keyboard.pressKey(Key.LeftShift);
+        modifiers.push("shift");
       }
-      await keyboard.pressKey(Key[obsSettings.inGameHotkey.key]);
-      if (obsSettings.inGameHotkey.altKey) {
-        await keyboard.releaseKey(Key.LeftAlt);
-      }
-      if (obsSettings.inGameHotkey.ctrlKey) {
-        await keyboard.releaseKey(Key.LeftControl);
-      }
-      if (obsSettings.inGameHotkey.shiftKey) {
-        await keyboard.releaseKey(Key.LeftShift);
-      }
-      await keyboard.releaseKey(Key[obsSettings.inGameHotkey.key]);
+      robot.keyTap(obsSettings.inGameHotkey.key, modifiers);
+      /*await keyboard.type(
+        obsSettings.inGameHotkey.altKey ? Key.LeftAlt : "",
+        obsSettings.inGameHotkey.ctrlKey ? Key.LeftControl : "",
+        obsSettings.inGameHotkey.shiftKey ? Key.LeftShift : "",
+        obsSettings.inGameHotkey.key
+      );*/
     } else if (menuState === "Score Screen" && obsSettings.outOfGameHotkey) {
+      let modifiers = [];
       if (obsSettings.outOfGameHotkey.altKey) {
-        await keyboard.pressKey(Key.LeftAlt);
+        modifiers.push("alt");
       }
       if (obsSettings.outOfGameHotkey.ctrlKey) {
-        await keyboard.pressKey(Key.LeftControl);
+        modifiers.push("control");
       }
       if (obsSettings.outOfGameHotkey.shiftKey) {
-        await keyboard.pressKey(Key.LeftShift);
+        modifiers.push("shift");
       }
-      await keyboard.pressKey(Key[obsSettings.outOfGameHotkey.key]);
-      if (obsSettings.outOfGameHotkey.altKey) {
-        await keyboard.releaseKey(Key.LeftAlt);
-      }
-      if (obsSettings.outOfGameHotkey.ctrlKey) {
-        await keyboard.releaseKey(Key.LeftControl);
-      }
-      if (obsSettings.outOfGameHotkey.shiftKey) {
-        await keyboard.releaseKey(Key.LeftShift);
-      }
-      await keyboard.releaseKey(Key[obsSettings.outOfGameHotkey.key]);
+      robot.keyTap(obsSettings.outOfGameHotkey.key, modifiers);
+      /*await keyboard.type(
+        obsSettings.outOfGameHotkey.altKey ? Key.LeftAlt : "",
+        obsSettings.outOfGameHotkey.ctrlKey ? Key.LeftControl : "",
+        obsSettings.outOfGameHotkey.shiftKey ? Key.LeftShift : "",
+        obsSettings.outOfGameHotkey.key
+      );*/
     }
   }
 }
@@ -416,16 +411,14 @@ async function handleWSMessage(message) {
     case "typeGameName":
       gameNumber += 1;
       if (autoHost.increment) {
-        await typeText(autoHost.gameName + " #" + gameNumber.toString(), false);
+        await typeText(
+          autoHost.gameName + " #" + gameNumber.toString(),
+          false,
+          true
+        );
       } else {
-        await typeText(autoHost.gameName, false);
+        await typeText(autoHost.gameName, false, true);
       }
-      sendSocket("doneTyping");
-      /*robot.typeStringDelayed(
-        autoHost.gameName + " #" + gameNumber.toString(),
-        10000
-      );
-      robot.keyTap("enter");*/
       break;
     case "info":
       log.info(JSON.stringify(message.data));
@@ -763,13 +756,13 @@ async function activeWindowWar() {
   warcraftInFocus = focused;
 }
 
-async function typeText(text, sendToChat = false) {
+async function typeText(text, sendToChat = false, isGameName = false) {
   if (socket) {
     await activeWindowWar();
     if (warcraftInFocus) {
       if (
         (menuState === "In Lobby" && sendToChat) ||
-        (!sendToChat && menuState !== "Creating Game")
+        (isGameName && menuState === "Creating Game")
       ) {
         let oldClipboard = clipboard.readText();
         if (sendToChat) {
@@ -778,22 +771,24 @@ async function typeText(text, sendToChat = false) {
         }
         clipboard.writeText(text);
         keyboard
-          .pressKey(Key.LeftControl, Key.V)
-          .then(keyboard.releaseKey(Key.LeftControl, Key.V))
+          .type(Key.LeftControl, Key.V)
           .then(async () => {
-            clipboard.writeText(oldClipboard);
-          })
-          .then(async () => {
-            if (sendToChat) {
+            if (isGameName) {
+              log.info("Done typing");
+              sendSocket("doneTyping");
+            } else if (sendToChat) {
               await keyboard.type(Key.Enter);
             }
+          })
+          .then(async () => {
+            clipboard.writeText(oldClipboard);
           })
           .catch((err) => {
             log.error(err);
           });
       }
     } else {
-      setTimeout(typeText.bind(null, text, sendToChat), 3000);
+      setTimeout(typeText.bind(null, text, sendToChat, isGameName), 3000);
     }
   }
   return;

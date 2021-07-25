@@ -35,6 +35,8 @@ function wsSetup() {
       !addedHtml &&
       menuState !== "Out of Menus" &&
       menuState !== "Unknown" &&
+      menuState !== "In Game" &&
+      menuState !== "Loading Game" &&
       webSocket &&
       webSocket.readyState === 1
     ) {
@@ -61,6 +63,7 @@ function wsSetup() {
   webSocket.onclose = function (event) {
     if (addedHtml) {
       addedHtml.remove();
+      addedHtml = null;
     }
     window.setTimeout(wsSetup, 5000);
   };
@@ -156,6 +159,8 @@ function mutationsSetup() {
         !addedHtml &&
         menuState !== "Out of Menus" &&
         menuState !== "Unknown" &&
+        menuState !== "In Game" &&
+        menuState !== "Loading Game" &&
         webSocket &&
         webSocket.readyState === 1
       ) {
@@ -174,6 +179,7 @@ function mutationsSetup() {
           });
       } else if (addedHtml && menuState === "Loading Game") {
         addedHtml.remove();
+        addedHtml = null;
       }
       sendSocket("menusChange", menuState);
       if (autoHost.type !== "off") {
