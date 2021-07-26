@@ -2,6 +2,11 @@
 
 [Click here for a v1.3 overall demo](https://youtu.be/bO37LO9TQWM)
 
+# Please Read #
+This program currently only works when Warcraft is set to English, and you MUST PICK "Only for me" during install.  
+For wc3stats ELO: for now most maps must be added manually due to the way ELO data is retrieved (feel free to try, it will attempt to grab data). Until this process is flushed out:  
+***Currently the only tried and tested map for wc3stats ELO Lookup and sorting is Hero Line Wars.*** Currently working with PyroTd devs to add support for them. Most maps can be added easily. Please [Submit a Request Here](https://github.com/kgallimore/wc3autobalancer/issues/new?title=Map%20Request&body=Map%20Name%3A%0A&labels=Map%20Request)
+
 # What this tool does: #
 * ## Auto Host ##
     * Click through the menus to host a lobby of your desired map
@@ -15,8 +20,7 @@
           * If you are host, it will swap players
           * If you are not host it will suggest the team combination in chat  
 
-For now maps must be added manually due to the way ELO data is retrieved. Until this process is flushed out:  
-***Currently the only supported map for ELO Lookup and sorting is Hero Line Wars.*** Currently working with PyroTd devs to add support for them. Most maps can be added easily. Please [Submit a Request Here](https://github.com/kgallimore/wc3autobalancer/issues/new?title=Map%20Request&body=Map%20Name%3A%0A&labels=Map%20Request)
+
 # What this tool is NOT: #
 This tool is not a ghost++ replacement. It's not meant for any sort of 24/7 hosting bot, and although it could be used for that purpose, it is not scalable, nor is it meant to be scalable.  
 ***It can NOT interact with anything while in game.***  
