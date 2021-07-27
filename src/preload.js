@@ -8,6 +8,7 @@ var autoHost = {
   private: store.get("autoHost.private") || false,
   sounds: store.get("autoHost.sounds") || false,
   increment: store.get("autoHost.increment") || true,
+  excludeHostFromSwap: store.get("autoHost.excludeHostFromSwap") || true,
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",

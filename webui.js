@@ -18,7 +18,7 @@ const testSlotAvailable = /Slot \d+ (Open Slot|Closed)/i;
 const testSlotOpen = /Open/i;
 const testComputer = /(Computer \(\S+\))/i;
 const testGameName = / #\d+$/;
-const version = "1.4.0";
+const version = "1.5.0";
 
 function emptyTeams() {
   this.slots = [];

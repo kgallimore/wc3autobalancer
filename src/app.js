@@ -3,7 +3,6 @@ const {
   BrowserWindow,
   Tray,
   Menu,
-  webContents,
   ipcMain,
   globalShortcut,
   clipboard,
@@ -36,8 +35,6 @@ autoUpdater.logger.transports.file.level = "info";
 
 log.info("App starting...");
 
-const excludeHostFromSwap = true;
-
 var win;
 var appIcon;
 var socket = null;
@@ -59,6 +56,7 @@ var autoHost = {
   private: store.get("autoHost.private") || false,
   sounds: store.get("autoHost.sounds") || false,
   increment: store.get("autoHost.increment") || true,
+  excludeHostFromSwap: store.get("autoHost.excludeHostFromSwap") || true,
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
   eloLookup: store.get("autoHost.eloLookup") || "off",
@@ -111,6 +109,9 @@ ipcMain.on("toMain", (event, args) => {
             if (autoHost.mapName.match(/(HLW)/i)) {
               autoHost.eloMapName = "HLW";
               autoHost.eloAvailable = true;
+            } else if (autoHost.mapName.match(/(pyro\s*td\s*league)/i)) {
+              autoHost.eloMapName = "Pyro%20TDLeague";
+              autoHost.eloAvailable = true;
             } else {
               autoHost.eloMapName = autoHost.mapName
                 .trim()
@@ -153,15 +154,16 @@ ipcMain.on("toMain", (event, args) => {
                 });
             }
           }
+        } else {
+          autoHost[args.data.key] = args.data.value;
         }
-        autoHost[args.data.key] = args.data.value;
         sendSocket("autoHost", autoHost);
-        store.set("autoHost." + args.data.key, args.data.value);
+        store.set("autoHost", autoHost);
       } else if (args.data.setting === "obs") {
         obsSettings[args.data.key] = args.data.value;
         sendSocket("obsSettings", obsSettings);
         sendWindow("obsSettings", obsSettings);
-        store.set("obsSettings." + args.data.key, args.data.value);
+        store.set("obsSettings", obsSettings);
       }
       break;
     case "getElementPos":
@@ -465,6 +467,10 @@ function processMapData(lobbyData) {
         if (!lobby.eloMapName) {
           if (lobby.mapData.mapName.match(/(HLW)/i)) {
             lobby.eloMapName = "HLW";
+            lobby.eloAvailable = true;
+          } else if (autoHost.mapName.match(/(pyro\s*td\s*league)/i)) {
+            lobby.eloMapName = "Pyro%20TDLeague";
+            lobby.eloAvailable = true;
           } else {
             lobby.eloMapName = mapName
               .trim()
@@ -507,6 +513,7 @@ function processMapData(lobbyData) {
       }
     } else {
       lobby.eloAvailable = false;
+      lobby.eloMapName = "";
     }
   }
 }
@@ -528,8 +535,6 @@ async function processLobby(lobbyData) {
       ) {
         lobby.lookingUpELO.add(user);
         if (autoHost.eloLookup === "wc3stats") {
-          console.log("wc3stats");
-
           https
             .get(
               `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
@@ -692,9 +697,9 @@ function swapHelper(lobbyData) {
   log.verbose(bestComboInTeam1, bestComboInTeam2);
   // If not excludeHostFromSwap and team1 has more best combo people, or excludeHostFromSwap and the best combo includes the host keep all best combo players in team 1.
   if (
-    (!excludeHostFromSwap &&
+    (!autoHost.excludeHostFromSwap &&
       bestComboInTeam1.length >= bestComboInTeam2.length) ||
-    (excludeHostFromSwap &&
+    (autoHost.excludeHostFromSwap &&
       lobbyData.bestCombo.includes(lobbyData.mapData.gameHost))
   ) {
     lobbyData.leastSwap = team1;
@@ -774,7 +779,6 @@ async function typeText(text, sendToChat = false, isGameName = false) {
           .type(Key.LeftControl, Key.V)
           .then(async () => {
             if (isGameName) {
-              log.info("Done typing");
               sendSocket("doneTyping");
             } else if (sendToChat) {
               await keyboard.type(Key.Enter);
@@ -939,6 +943,4 @@ async function analyzeGame() {
     }
   });
   await parser.parse(readFileSync("./replay.w3g"));
-  console.log(data);
-  console.log(dataTypes);
 }

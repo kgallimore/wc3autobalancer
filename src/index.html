@@ -32,6 +32,8 @@
                     <option value="local" disabled>Local</option>
                   </select>
                 </div>
+              </div>
+              <div class="row">
                 <div class="col">
                   <label for="autoHostState" class="form-label">Auto Host</label>
                   <select id="autoHostState" class="form-select" data-key="type" data-setting="autoHost">
@@ -63,11 +65,14 @@
                 </div>
                 <div class="row p-2">
                   <div class="col">
-                    <div class="d-flex justify-content-center">
-                      <input type="checkbox" class="btn-check" id="autoHostSoundsCheck" data-key="sounds"
-                        data-setting="autoHost">
-                      <label for="autoHostSoundsCheck" class="btn btn-outline-primary">Sound Notifications</label>
-                    </div>
+                    <input type="checkbox" class="btn-check" id="autoHostSoundsCheck" data-key="sounds"
+                      data-setting="autoHost">
+                    <label for="autoHostSoundsCheck" class="btn btn-outline-primary">Sound Notifications</label>
+                  </div>
+                  <div class="col">
+                    <input type="checkbox" class="btn-check" id="autoHostExcludeHostCheck"
+                      data-key="excludeHostFromSwap" data-setting="autoHost">
+                    <label for="autoHostExcludeHostCheck" class="btn btn-outline-primary">Exclude Host From Swap</label>
                   </div>
                 </div>
                 <div class="row p-2">
