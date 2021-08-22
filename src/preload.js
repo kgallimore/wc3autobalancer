@@ -8,19 +8,33 @@ var autoHost = {
   private: store.get("autoHost.private") || false,
   sounds: store.get("autoHost.sounds") || false,
   increment: store.get("autoHost.increment") || true,
-  excludeHostFromSwap: store.get("autoHost.excludeHostFromSwap") || true,
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
-  eloLookup: store.get("autoHost.eloLookup") || "off",
-  eloAvailable: store.get("autoHost.eloAvailable") || false,
-  eloMapName: store.get("autoHost.eloMapName") || "",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
+  announceIsBot: store.get("autoHost.announceIsBot") || false,
 };
-console.log("autoHost", autoHost);
 var obsSettings = {
   type: store.get("obsSettings.type") || "off",
   inGameHotkey: store.get("obsSettings.inGameHotkey") || false,
   outOfGameHotkey: store.get("obsSettings.outOfGameHotkey") || false,
+};
+var eloSettings = {
+  type:
+    store.get("eloSettings.type") ?? store.get("autoHost.eloLookup") ?? "off",
+  balanceTeams: store.get("eloSettings.balanceTeams") ?? true,
+  announceELO: store.get("eloSettings.announceELO") ?? true,
+  excludeHostFromSwap:
+    store.get("eloSettings.excludeHostFromSwap") ??
+    store.get("autoHost.excludeHostFromSwap") ??
+    true,
+  eloMapName:
+    store.get("eloSettings.eloMapName") ??
+    store.get("autoHost.eloMapName") ??
+    "",
+  eloAvailable:
+    store.get("eloSettings.eloAvailable") ??
+    store.get("autoHost.eloAvailable") ??
+    false,
 };
 
 // Expose protected methods that allow the renderer process to use
@@ -57,6 +71,15 @@ function init() {
   updateAutoHostSettings();
 
   updateOBSSettings();
+
+  updateELOSettings();
+
+  document.body.addEventListener("click", (event) => {
+    if (event.target.tagName.toLowerCase() === "a") {
+      event.preventDefault();
+      require("electron").shell.openExternal(event.target.href);
+    }
+  });
 
   document.querySelectorAll("input, select").forEach((input) => {
     if (input.nodeName === "INPUT" && input.type === "text") {
@@ -119,6 +142,11 @@ function init() {
         obsSettings = data.data;
         updateOBSSettings();
         break;
+      case "eloSettings":
+        console.log("elo");
+        eloSettings = data.data;
+        updateELOSettings();
+        break;
       case "lobbyUpdate":
         generateTables(data.data);
         break;
@@ -133,7 +161,17 @@ function init() {
         document.getElementById("menuStateLabel").innerText = data.data;
         break;
       case "error":
-        alert(data.data);
+        let alertDiv = document.createElement("div");
+        alertDiv.classList.add(
+          "alert",
+          "alert-danger",
+          "alert-dismissible",
+          "fade",
+          "show"
+        );
+        alertDiv.role = "alert";
+        alertDiv.innerHTML = `<strong>Error!</strong> ${data.data} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+        document.body.prepend(alertDiv);
         break;
       case "gotMapDirectory":
         document.getElementById("mapDirectorySpan").innerText =
@@ -330,7 +368,20 @@ function updateOBSSettings() {
         }
       }
     });
-  console.log(obsSettings);
   document.getElementById("obsHotkeysSettings").style.display =
     obsSettings.type === "hotkeys" ? "block" : "none";
+}
+
+function updateELOSettings() {
+  document.forms["ELOSettings"]
+    .querySelectorAll("input, select")
+    .forEach((input) => {
+      if (input.type === "checkbox") {
+        input.checked = eloSettings[input.getAttribute("data-key")];
+      } else {
+        input.value = eloSettings[input.getAttribute("data-key")];
+      }
+    });
+  document.getElementById("ELOSettings").style.display =
+    eloSettings.type !== "off" ? "block" : "none";
 }

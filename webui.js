@@ -54,6 +54,7 @@ function wsSetup() {
           sendSocket("toggleAutoHost");
         });
     }
+    sendSocket("info", websocketLocation);
     sendSocket("info", "Connected. Hello! I am version: " + version);
     sendSocket("menusChange", menuState);
     if (lobby && Object.keys(lobby).length > 0) {
@@ -73,6 +74,7 @@ function wsSetup() {
     switch (data.messageType) {
       case "doneTyping":
         typingGameName = false;
+        setTimeout(createLobby, 250);
         break;
       case "lobby":
         lobby = getLobbyData();
@@ -244,7 +246,6 @@ function handleLobby(mutationsList, menusObserver) {
     let newLobbyData = getLobbyData();
     if (newLobbyData) {
       if (JSON.stringify(newLobbyData) !== JSON.stringify(lobby.lobbyData)) {
-        sendSocket("info", "Lobby changed.");
         lobby.lobbyData = newLobbyData;
         sendSocket("lobbyUpdate", lobby.lobbyData);
       } else {
@@ -255,7 +256,6 @@ function handleLobby(mutationsList, menusObserver) {
             if (
               JSON.stringify(newLobbyData) !== JSON.stringify(lobby.lobbyData)
             ) {
-              sendSocket("info", "Lobby changed.");
               lobby.lobbyData = newLobbyData;
               sendSocket("lobbyUpdate", lobby.lobbyData);
             }
@@ -302,7 +302,10 @@ function moveInLobby() {
                   .toLowerCase()
                   .replace(/(\r\n|\n|\r)/gm, "") === teamName.toLowerCase()
               ) {
-                sendSocket("info", teamNameDiv.innerText);
+                sendSocket(
+                  "info",
+                  "Joining spec/host: " + teamNameDiv.innerText
+                );
                 setTimeout(function () {
                   teamNameDiv.click();
                 }, 250);
@@ -416,6 +419,7 @@ function createLobby() {
         document.querySelector("div.CreateGameMenu-GameName input").focus();
         typingGameName = true;
         sendSocket("typeGameName");
+        return;
       } else if (!isValidGameName && !typingGameName) {
         sendSocket("info", "Invalid game name. Typing:" + typingGameName);
       }
@@ -429,6 +433,7 @@ function createLobby() {
         isValidGameName &&
         !createButtonDisabled
       ) {
+        sendSocket("info", "Clicking Create Lobby");
         document
           .querySelector(
             "div.CreateGameMenu-CreateButton-Holder div.Primary-Button-Content"

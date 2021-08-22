@@ -25,9 +25,48 @@ const Jimp = require("jimp");
 const sound = require("sound-play");
 const { ReplayParser } = require("w3gjs");
 const { readFileSync, readdirSync } = require("fs");
+/*const Eris = require("eris");
+
+const token = "";
+
+const bot = new Eris(token);
+bot.on("ready", () => {
+  console.log("Ready!");
+  bot.guilds.forEach((guild) => {
+    guild.channels.forEach((channel) => {
+      console.log(channel.name, channel.type, channel.id);
+      if (channel.type === 0) {
+        bot.createMessage(channel.id, "I'm ready!");
+      }
+    });
+  });
+});
+bot.on("messageCreate", (msg) => {
+  if (msg.content === "!ping") {
+    bot.createMessage(msg.channel.id, "Pong!");
+  }
+});
+bot.connect();*/
 
 const store = new Store();
 const parser = new ReplayParser();
+
+// Maybe in the future will switch to tesseract instead of finding an image
+/*
+const { createWorker } = require("tesseract.js");
+const worker = createWorker({
+  logger: (m) => console.log(m), // Add logger here
+});
+(async () => {
+  await worker.load();
+  await worker.loadLanguage("eng");
+  await worker.initialize("eng");
+  const {
+    data: { text },
+  } = await worker.recognize("src\\tempResolve.png");
+  console.log(text);
+  await worker.terminate();
+})();*/
 const testFlag = new RegExp(/FlagP \d+ (Loser|Winner)/i);
 
 autoUpdater.logger = log;
@@ -44,11 +83,7 @@ var lobby = {};
 var warcraftInFocus = true;
 var menuState = "Out of Menus";
 var wss;
-var obsSettings = {
-  type: store.get("obsSettings.type") || "off",
-  inGameHotkey: store.get("obsSettings.inGameHotkey") || false,
-  outOfGameHotkey: store.get("obsSettings.outOfGameHotkey") || false,
-};
+
 // After I stop changing these values around I can just get the whole dict
 //var autoHost = store.get("autoHost")
 var autoHost = {
@@ -56,13 +91,33 @@ var autoHost = {
   private: store.get("autoHost.private") || false,
   sounds: store.get("autoHost.sounds") || false,
   increment: store.get("autoHost.increment") || true,
-  excludeHostFromSwap: store.get("autoHost.excludeHostFromSwap") || true,
   mapName: store.get("autoHost.mapName") || "",
   gameName: store.get("autoHost.gameName") || "",
-  eloLookup: store.get("autoHost.eloLookup") || "off",
-  eloAvailable: store.get("autoHost.eloAvailable") || false,
-  eloMapName: store.get("autoHost.eloMapName") || "",
   mapDirectory: store.get("autoHost.mapDirectory") || ["Download"],
+  announceIsBot: store.get("autoHost.announceIsBot") || false,
+};
+var obsSettings = {
+  type: store.get("obsSettings.type") || "off",
+  inGameHotkey: store.get("obsSettings.inGameHotkey") || false,
+  outOfGameHotkey: store.get("obsSettings.outOfGameHotkey") || false,
+};
+var eloSettings = {
+  type:
+    store.get("eloSettings.type") ?? store.get("autoHost.eloLookup") ?? "off",
+  balanceTeams: store.get("eloSettings.balanceTeams") ?? true,
+  announceELO: store.get("eloSettings.announceELO") ?? true,
+  excludeHostFromSwap:
+    store.get("eloSettings.excludeHostFromSwap") ??
+    store.get("autoHost.excludeHostFromSwap") ??
+    true,
+  eloMapName:
+    store.get("eloSettings.eloMapName") ??
+    store.get("autoHost.eloMapName") ??
+    "",
+  eloAvailable:
+    store.get("eloSettings.eloAvailable") ??
+    store.get("autoHost.eloAvailable") ??
+    false,
 };
 
 keyboard.config.autoDelayMs = 3;
@@ -105,55 +160,7 @@ ipcMain.on("toMain", (event, args) => {
       if (args.data.setting === "autoHost") {
         if (args.data.key === "mapName") {
           autoHost.mapName = args.data.value;
-          if (autoHost.eloLookup === "wc3stats") {
-            if (autoHost.mapName.match(/(HLW)/i)) {
-              autoHost.eloMapName = "HLW";
-              autoHost.eloAvailable = true;
-            } else if (autoHost.mapName.match(/(pyro\s*td\s*league)/i)) {
-              autoHost.eloMapName = "Pyro%20TDLeague";
-              autoHost.eloAvailable = true;
-            } else {
-              autoHost.eloMapName = autoHost.mapName
-                .trim()
-                .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
-                .replace(/\s/g, "%20");
-              log.info(
-                "Querying wc3stats to see if ELO data is available for: autoHost.mapName"
-              );
-              log.info(`https://api.wc3stats.com/maps/${autoHost.eloMapName}`);
-              https
-                .get(
-                  `https://api.wc3stats.com/maps/${autoHost.eloMapName}`,
-                  (resp) => {
-                    let dataChunks = "";
-                    resp.on("data", (chunk) => {
-                      dataChunks += chunk;
-                    });
-                    resp.on("end", () => {
-                      const jsonData = JSON.parse(dataChunks);
-                      autoHost.eloAvailable = jsonData.status === "OK";
-                      log.info("Elo data available: " + autoHost.eloAvailable);
-                      if (!autoHost.eloAvailable) {
-                        sendWindow(
-                          "error",
-                          "We couldn't find any ELO data for your map. Please raise an issue on Github if you think there should be."
-                        );
-                      }
-                      // TODO check variants, seasons, modes, and ladders
-                      /*if (lobbyData.eloAvailable) {
-                    jsonData.body.variants.forEach((variant) => {
-                      variant.stats.forEach((stats) => {});
-                    });
-                  }*/
-                    });
-                  }
-                )
-                .on("error", (err) => {
-                  autoHost.eloAvailable = false;
-                  log.error("Error: " + err.message);
-                });
-            }
-          }
+          eloMapNameCheck();
         } else {
           autoHost[args.data.key] = args.data.value;
         }
@@ -163,7 +170,16 @@ ipcMain.on("toMain", (event, args) => {
         obsSettings[args.data.key] = args.data.value;
         sendSocket("obsSettings", obsSettings);
         sendWindow("obsSettings", obsSettings);
+        log.info(obsSettings);
         store.set("obsSettings", obsSettings);
+      } else if (args.data.setting === "elo") {
+        if (args.data.key === "type" && args.data.value !== "off") {
+          eloMapNameCheck();
+        }
+        eloSettings[args.data.key] = args.data.value;
+        sendWindow("eloSettings", eloSettings);
+        log.info(eloSettings);
+        store.set("eloSettings", eloSettings);
       }
       break;
     case "getElementPos":
@@ -180,6 +196,62 @@ ipcMain.on("toMain", (event, args) => {
       log.info(args);
   }
 });
+
+function eloMapNameCheck() {
+  // Clean the name from the map name
+  if (eloSettings.type === "wc3stats") {
+    if (autoHost.mapName.match(/(HLW)/i)) {
+      eloSettings.eloMapName = "HLW";
+      eloSettings.eloAvailable = true;
+    } else if (autoHost.mapName.match(/(pyro\s*td\s*league)/i)) {
+      eloSettings.eloMapName = "Pyro%20TD";
+      eloSettings.eloAvailable = true;
+    } else {
+      const newName = autoHost.mapName
+        .trim()
+        .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
+        .replace(/\s/g, "%20");
+      if (newName !== eloSettings.eloMapName) {
+        eloSettings.eloMapName = newName;
+        log.info(
+          `Querying wc3stats to see if ELO data is available for: ${eloSettings.eloMapName}`
+        );
+        log.info(`https://api.wc3stats.com/maps/${eloSettings.eloMapName}`);
+        https
+          .get(
+            `https://api.wc3stats.com/maps/${eloSettings.eloMapName}`,
+            (resp) => {
+              let dataChunks = "";
+              resp.on("data", (chunk) => {
+                dataChunks += chunk;
+              });
+              resp.on("end", () => {
+                const jsonData = JSON.parse(dataChunks);
+                eloSettings.eloAvailable = jsonData.status === "OK";
+                log.info("Elo data available: " + eloSettings.eloAvailable);
+                if (!eloSettings.eloAvailable) {
+                  sendWindow(
+                    "error",
+                    "We couldn't find any ELO data for your map. Please raise an issue on <a href='https://github.com/kgallimore/wc3autobalancer/issues/new?title=Map%20Request&body=Map%20Name%3A%0A&labels=Map%20Request' class='alert-link'> Github</a> if you think there should be."
+                  );
+                }
+                // TODO check variants, seasons, modes, and ladders
+                /*if (lobbyData.eloAvailable) {
+              jsonData.body.variants.forEach((variant) => {
+                variant.stats.forEach((stats) => {});
+              });
+            }*/
+              });
+            }
+          )
+          .on("error", (err) => {
+            eloSettings.eloAvailable = false;
+            log.error("Error: " + err.message);
+          });
+      }
+    }
+  }
+}
 
 autoUpdater.on("checking-for-update", () => {
   win.webContents.send("fromMain", {
@@ -242,7 +314,7 @@ autoUpdater.on("update-downloaded", (info) => {
 
 const createWindow = () => {
   win = new BrowserWindow({
-    width: 600,
+    width: 1080,
     height: 800,
     title: "WC3 Auto Balancer v" + app.getVersion(),
     show: false,
@@ -429,7 +501,7 @@ async function handleWSMessage(message) {
       menuState = message.data;
       sendWindow(message.messageType, message.data);
       triggerOBS();
-      log.verbose(message);
+      log.info(message);
       break;
     case "lobbyData":
       // Flush any previous lobbies
@@ -459,7 +531,7 @@ async function handleWSMessage(message) {
 function processMapData(lobbyData) {
   if (menuState === "In Lobby") {
     lobby.mapData = lobbyData.mapData;
-    if (autoHost.eloLookup !== "off") {
+    if (eloSettings.type !== "off") {
       lobby.eloList = {};
       lobby.lookingUpELO = new Set();
       const mapName = lobby.mapData.mapName;
@@ -468,62 +540,79 @@ function processMapData(lobbyData) {
           if (lobby.mapData.mapName.match(/(HLW)/i)) {
             lobby.eloMapName = "HLW";
             lobby.eloAvailable = true;
+            log.info("Autohost disabled. HLW Recognized");
           } else if (autoHost.mapName.match(/(pyro\s*td\s*league)/i)) {
-            lobby.eloMapName = "Pyro%20TDLeague";
+            lobby.eloMapName = "Pyro%20TD";
             lobby.eloAvailable = true;
+            log.info("Autohost disabled. Pyro TD Recognized");
           } else {
             lobby.eloMapName = mapName
               .trim()
               .replace(/\s*v?\.?(\d+\.)?(\*|\d+)\w*\s*$/gi, "")
               .replace(/\s/g, "%20");
+            log.info(
+              "Autohost disabled. Unkown Map. Querying: https://api.wc3stats.com/maps/" +
+                lobby.eloMapName
+            );
+            if (eloSettings.type === "wc3stats") {
+              https
+                .get(
+                  `https://api.wc3stats.com/maps/${lobby.eloMapName}`,
+                  (resp) => {
+                    let dataChunks = "";
+                    resp.on("data", (chunk) => {
+                      dataChunks += chunk;
+                    });
+                    resp.on("end", () => {
+                      const jsonData = JSON.parse(dataChunks);
+                      lobby.eloAvailable = jsonData.status === "OK";
+                      log.info(
+                        "Autohost disabled. Map queried. Returned: " +
+                          lobby.eloAvailable
+                      );
+                      sendWindow("lobbyData", lobby);
+                      processLobby(lobbyData.lobbyData);
+                      // TODO check variants, seasons, modes, and ladders
+                      /*if (lobbyData.eloAvailable) {
+                      jsonData.body.variants.forEach((variant) => {
+                        variant.stats.forEach((stats) => {});
+                      });
+                    }*/
+                    });
+                  }
+                )
+                .on("error", (err) => {
+                  log.error("Error: " + err.message);
+                });
+            }
           }
         }
-        if (autoHost.eloLookup === "wc3stats") {
-          https
-            .get(
-              `https://api.wc3stats.com/maps/${lobby.eloMapName}`,
-              (resp) => {
-                let dataChunks = "";
-                resp.on("data", (chunk) => {
-                  dataChunks += chunk;
-                });
-                resp.on("end", () => {
-                  const jsonData = JSON.parse(dataChunks);
-                  lobby.eloAvailable = jsonData.status === "OK";
-                  sendWindow("lobbyData", lobby);
-                  processLobby(lobbyData.lobbyData);
-                  // TODO check variants, seasons, modes, and ladders
-                  /*if (lobbyData.eloAvailable) {
-                jsonData.body.variants.forEach((variant) => {
-                  variant.stats.forEach((stats) => {});
-                });
-              }*/
-                });
-              }
-            )
-            .on("error", (err) => {
-              log.error("Error: " + err.message);
-            });
-        }
       } else {
-        lobby.eloAvailable = autoHost.eloAvailable;
-        lobby.eloMapName = autoHost.eloMapName;
+        lobby.eloAvailable = eloSettings.eloAvailable;
+        lobby.eloMapName = eloSettings.eloMapName;
         sendWindow("lobbyData", lobby);
+        log.info(
+          "Autohost enabled. Lobby data received",
+          lobby.eloMapName,
+          lobby.eloAvailable
+        );
         processLobby(lobbyData.lobbyData);
       }
     } else {
       lobby.eloAvailable = false;
       lobby.eloMapName = "";
+      log.info("Lobby data received", lobby.eloMapName, lobby.eloAvailable);
     }
   }
 }
 
 async function processLobby(lobbyData) {
   lobby.lobbyData = lobbyData;
+  lobby.lobbyData.allPlayers = new Set(lobby.lobbyData.allPlayers);
   if (lobby.eloAvailable) {
     const mapName = lobby.eloMapName;
     Object.keys(lobby.eloList).forEach((user) => {
-      if (!lobby.lobbyData.allPlayers.includes(user)) {
+      if (!lobby.lobbyData.allPlayers.has(user)) {
         delete lobby.eloList[user];
       }
       lobby.lookingUpELO.delete(user);
@@ -534,7 +623,7 @@ async function processLobby(lobbyData) {
         !lobby.lookingUpELO.has(user)
       ) {
         lobby.lookingUpELO.add(user);
-        if (autoHost.eloLookup === "wc3stats") {
+        if (eloSettings.type === "wc3stats") {
           https
             .get(
               `https://api.wc3stats.com/leaderboard&map=${mapName}&search=${user
@@ -554,13 +643,13 @@ async function processLobby(lobbyData) {
                     elo = jsonData.body[0].rating;
                   }
                   // If they haven't left, set real ELO
-                  if (lobby.lobbyData.allPlayers.includes(user)) {
+                  if (lobby.lobbyData.allPlayers.has(user)) {
                     lobby.eloList[user] = elo;
                     sendProgress(
                       "Got ELO for " + user,
                       (Object.keys(lobby.eloList).length /
                         (lobby.lobbyData.openPlayerSlots +
-                          lobby.lobbyData.allPlayers.length)) *
+                          lobby.lobbyData.allPlayers.size)) *
                         90 +
                         10
                     );
@@ -571,14 +660,14 @@ async function processLobby(lobbyData) {
                       data: lobby,
                     });
                     log.verbose(user + " ELO: " + elo.toString());
-                    await typeText(user + " ELO: " + elo.toString(), true);
-                    log.silly(lobby.lookingUpELO);
-                    log.silly(lobby.eloList);
+                    if (eloSettings.announceELO) {
+                      await typeText(user + " ELO: " + elo.toString(), true);
+                    }
                     // If the lobby is full, and we have the ELO for everyone,
                     if (
                       lobby.lobbyData.openPlayerSlots === 0 &&
                       Object.keys(lobby.eloList).length ===
-                        lobby.lobbyData.allPlayers.length
+                        lobby.lobbyData.allPlayers.size
                     ) {
                       finalizeLobby();
                     }
@@ -595,6 +684,19 @@ async function processLobby(lobbyData) {
       }
     });
   }
+  if (
+    lobby.mapData.isHost &&
+    autoHost.type === "ghostHost" &&
+    autoHost.announceIsBot
+  ) {
+    lobby.lobbyData.allPlayers.forEach(function (user) {
+      if (!lobby.playerSet || !lobby.playerSet.has(user)) {
+        announceBot();
+        return;
+      }
+    });
+    lobby.playerSet = lobby.lobbyData.allPlayers;
+  }
   if (lobbyIsReady()) {
     finalizeLobby();
   }
@@ -605,14 +707,13 @@ function lobbyIsReady() {
   return (
     (lobby.eloAvailable &&
       lobby.lobbyData.openPlayerSlots === 0 &&
-      Object.keys(lobby.eloList).length ===
-        lobby.lobbyData.allPlayers.length) ||
+      Object.keys(lobby.eloList).length === lobby.lobbyData.allPlayers.size) ||
     (!lobby.eloAvailable && lobby.lobbyData.openPlayerSlots === 0)
   );
 }
 
 async function finalizeLobby() {
-  if (lobby.eloAvailable) {
+  if (lobby.eloAvailable && eloSettings.balanceTeams) {
     lobby.totalElo = Object.values(lobby.eloList).reduce((a, b) => a + b, 0);
     let smallestEloDiff = Number.POSITIVE_INFINITY;
     let bestCombo = [];
@@ -634,7 +735,7 @@ async function finalizeLobby() {
     lobby.bestCombo = bestCombo;
     lobby.eloDiff = smallestEloDiff;
     swapHelper(lobby);
-    await typeText("ELO data provided by: " + autoHost.eloLookup, true);
+    await typeText("ELO data provided by: " + eloSettings.type, true);
     if (!lobby.mapData.isHost) {
       await typeText(
         lobby.leastSwap + " should be: " + bestCombo.join(", "),
@@ -697,9 +798,9 @@ function swapHelper(lobbyData) {
   log.verbose(bestComboInTeam1, bestComboInTeam2);
   // If not excludeHostFromSwap and team1 has more best combo people, or excludeHostFromSwap and the best combo includes the host keep all best combo players in team 1.
   if (
-    (!autoHost.excludeHostFromSwap &&
+    (!eloSettings.excludeHostFromSwap &&
       bestComboInTeam1.length >= bestComboInTeam2.length) ||
-    (autoHost.excludeHostFromSwap &&
+    (eloSettings.excludeHostFromSwap &&
       lobbyData.bestCombo.includes(lobbyData.mapData.gameHost))
   ) {
     lobbyData.leastSwap = team1;
@@ -727,6 +828,19 @@ function swapHelper(lobbyData) {
     });
   }
   lobbyData.swaps = [swapsFromTeam1, swapsFromTeam2];
+}
+
+async function announceBot() {
+  if (menuState === "In Lobby") {
+    let text = "Welcome. I am a bot.";
+    if (lobby.eloAvailable) {
+      text += " I will fetch ELO from " + eloSettings.type + ".";
+      if (eloSettings.balanceTeams) {
+        text += " I will try to balance teams before we start.";
+      }
+    }
+    await typeText(text, true, false, true);
+  }
 }
 
 function intersect(a, b) {
@@ -761,7 +875,12 @@ async function activeWindowWar() {
   warcraftInFocus = focused;
 }
 
-async function typeText(text, sendToChat = false, isGameName = false) {
+async function typeText(
+  text,
+  sendToChat = false,
+  isGameName = false,
+  enqueueMessage = true
+) {
   if (socket) {
     await activeWindowWar();
     if (warcraftInFocus) {
@@ -791,7 +910,7 @@ async function typeText(text, sendToChat = false, isGameName = false) {
             log.error(err);
           });
       }
-    } else {
+    } else if (enqueueMessage) {
       setTimeout(typeText.bind(null, text, sendToChat, isGameName), 3000);
     }
   }
@@ -855,6 +974,8 @@ async function tempFindQuitHelper(templateMat, targetCoefficient = 0.8) {
     }
     if (target) {
       const matched = target.matchTemplate(templateMat, 5);
+      const maxVal = matched.minMaxLoc().maxVal;
+      log.verbose("Closest Target Value: " + maxVal.toString());
       return matched.minMaxLoc().maxVal >= targetCoefficient;
     } else {
       log.error("No target image?");
@@ -871,16 +992,17 @@ async function tempFindQuit() {
     await activeWindowWar();
     if (warcraftInFocus) {
       sendProgress("Searching for quit...", 100);
-      log.verbose("Looking for quit");
+      log.verbose("Looking for quit. quitHLWMat");
       const foundQuitHLW = await tempFindQuitHelper(quitHLWMat);
+      log.verbose("Looking for quit. quitNormalMat");
       const foundQuitNormal = await tempFindQuitHelper(quitNormalMat);
+      log.verbose("Looking for quit. quitHLWHighlightMat");
       const foundQuitHLWHighlight = await tempFindQuitHelper(
         quitHLWHighlightMat
       );
       if (foundQuitHLW || foundQuitNormal || foundQuitHLWHighlight) {
         sendProgress("Found quit. Quitting", 100);
-
-        log.verbose("Found quit. Press q");
+        log.info("Found quit. Press q");
         await keyboard.type("q");
         if (autoHost.sounds) {
           playSound("quit.wav");
@@ -895,6 +1017,7 @@ async function tempFindQuit() {
 
 async function setupMats() {
   try {
+    const screenWidth = await robot.getScreenSize().width;
     if (!app.isPackaged) {
       quitHLWMat = await cv.imreadAsync(`${__dirname}\\images\\quitHLW.png`);
       quitNormalMat = await cv.imreadAsync(
@@ -911,7 +1034,9 @@ async function setupMats() {
         `${app.getAppPath()}\\..\\..\\images\\quitHLWHighlight.png`
       );
       quitNormalMat = await cv.imreadAsync(
-        `${app.getAppPath()}\\..\\..\\images\\quitNormal.png`
+        `${app.getAppPath()}\\..\\..\\images\\${
+          screenWidth > 1440 ? "" : "1080\\"
+        }quitNormal.png`
       );
     }
   } catch (err) {
